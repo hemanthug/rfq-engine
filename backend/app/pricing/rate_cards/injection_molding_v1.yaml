@@ -1,0 +1,113 @@
+version: injection_molding_v1
+kind: budgetary_defaults
+process: injection_molding
+currency: USD
+shop_rates:
+  press_hourly_usd: 95.0
+  setup_hourly_usd: 85.0
+  handling_qc_hourly_usd: 45.0
+  minimum_production_order_usd: 750.0
+defaults:
+  base_cycle_seconds: 28.0
+  cooling_seconds_per_mm_wall_proxy: 4.0
+  handling_seconds_per_part: 4.0
+  setup_changeover_hours: 3.0
+  scrap_factor: 1.08
+  tool_complexity_multiplier_at_100: 1.75
+  cycle_complexity_multiplier_at_100: 1.35
+materials:
+  abs:
+    label: ABS
+    density_g_cm3: 1.04
+    resin_usd_per_kg: 3.2
+    processing_multiplier: 1.0
+  pp:
+    label: Polypropylene
+    density_g_cm3: 0.90
+    resin_usd_per_kg: 2.4
+    processing_multiplier: 0.92
+  pc:
+    label: Polycarbonate
+    density_g_cm3: 1.20
+    resin_usd_per_kg: 4.8
+    processing_multiplier: 1.18
+  nylon_66:
+    label: Nylon 6/6
+    density_g_cm3: 1.14
+    resin_usd_per_kg: 4.2
+    processing_multiplier: 1.12
+  acetal_pom:
+    label: Acetal/POM
+    density_g_cm3: 1.41
+    resin_usd_per_kg: 4.6
+    processing_multiplier: 1.05
+mold_classes:
+  prototype:
+    label: Prototype aluminum tooling
+    base_tooling_usd: 8000.0
+    tooling_multiplier: 0.65
+    max_shots: 10000
+    warnings:
+      - prototype_tooling_limited_life
+  bridge:
+    label: Bridge tooling
+    base_tooling_usd: 18000.0
+    tooling_multiplier: 0.85
+    max_shots: 50000
+    warnings: []
+  production:
+    label: Production hardened tooling
+    base_tooling_usd: 35000.0
+    tooling_multiplier: 1.0
+    max_shots: 500000
+    warnings: []
+  high_volume:
+    label: High-volume production tooling
+    base_tooling_usd: 65000.0
+    tooling_multiplier: 1.35
+    max_shots: null
+    warnings:
+      - high_volume_tooling_requires_engineering_review
+finishes:
+  standard_spi_b3:
+    label: Standard SPI-B3
+    tooling_add_usd: 0.0
+    production_multiplier: 1.0
+    warnings: []
+  matte_texture:
+    label: Matte texture
+    tooling_add_usd: 2500.0
+    production_multiplier: 1.03
+    warnings:
+      - texture_requires_draft_review
+  polished:
+    label: Polished
+    tooling_add_usd: 4500.0
+    production_multiplier: 1.08
+    warnings:
+      - polish_requires_tooling_review
+lead_time_classes:
+  standard:
+    label: Standard
+    multiplier: 1.0
+    warnings: []
+  expedited:
+    label: Expedited
+    multiplier: 1.25
+    warnings:
+      - expedited_tooling_subject_to_capacity
+annual_volume_tiers:
+  - min_annual_volume: 1
+    max_annual_volume: 9999
+    production_multiplier: 1.15
+    warnings:
+      - low_annual_volume_molding_economics_should_be_reviewed
+  - min_annual_volume: 10000
+    max_annual_volume: 99999
+    production_multiplier: 1.0
+    warnings: []
+  - min_annual_volume: 100000
+    max_annual_volume: null
+    production_multiplier: 0.9
+    warnings:
+      - high_volume_quote_should_be_supplier_validated

@@ -1,0 +1,158 @@
+version: sheet_metal_v1
+kind: budgetary_defaults
+process: sheet_metal
+currency: USD
+shop_rates:
+  programming_hourly_usd: 80.0
+  cutting_hourly_usd: 110.0
+  brake_hourly_usd: 95.0
+  deburr_qc_hourly_usd: 45.0
+  minimum_order_usd: 125.0
+defaults:
+  sheet_utilization: 0.82
+  setup_programming_minutes: 35.0
+  cutting_speed_mm_min: 1800.0
+  pierce_seconds_each: 2.5
+  bend_minutes_each: 1.2
+  deburr_qc_minutes_per_part: 4.0
+  flat_pattern_allowance_multiplier: 1.12
+materials:
+  aluminum_5052:
+    label: Aluminum 5052
+    density_g_cm3: 2.68
+    sheet_usd_per_kg: 5.8
+    cutting_multiplier: 0.9
+    gauge_material_family: aluminum
+    k_factor: 0.42
+    gauges:
+      - { gauge: 7, thickness_mm: 3.665 }
+      - { gauge: 8, thickness_mm: 3.264 }
+      - { gauge: 9, thickness_mm: 2.906 }
+      - { gauge: 10, thickness_mm: 2.588 }
+      - { gauge: 11, thickness_mm: 2.305 }
+      - { gauge: 12, thickness_mm: 2.053 }
+      - { gauge: 14, thickness_mm: 1.628 }
+      - { gauge: 16, thickness_mm: 1.291 }
+      - { gauge: 18, thickness_mm: 1.024 }
+      - { gauge: 20, thickness_mm: 0.812 }
+      - { gauge: 22, thickness_mm: 0.644 }
+      - { gauge: 24, thickness_mm: 0.511 }
+      - { gauge: 26, thickness_mm: 0.405 }
+      - { gauge: 28, thickness_mm: 0.321 }
+      - { gauge: 30, thickness_mm: 0.255 }
+  steel_crs:
+    label: Cold rolled steel
+    density_g_cm3: 7.85
+    sheet_usd_per_kg: 2.2
+    cutting_multiplier: 1.0
+    gauge_material_family: cold_rolled_steel
+    k_factor: 0.44
+    gauges:
+      - { gauge: 7, thickness_mm: 4.554 }
+      - { gauge: 8, thickness_mm: 4.175 }
+      - { gauge: 9, thickness_mm: 3.797 }
+      - { gauge: 10, thickness_mm: 3.416 }
+      - { gauge: 11, thickness_mm: 3.038 }
+      - { gauge: 12, thickness_mm: 2.656 }
+      - { gauge: 14, thickness_mm: 1.897 }
+      - { gauge: 16, thickness_mm: 1.518 }
+      - { gauge: 18, thickness_mm: 1.214 }
+      - { gauge: 20, thickness_mm: 0.911 }
+      - { gauge: 22, thickness_mm: 0.759 }
+      - { gauge: 24, thickness_mm: 0.607 }
+      - { gauge: 26, thickness_mm: 0.454 }
+      - { gauge: 28, thickness_mm: 0.378 }
+      - { gauge: 30, thickness_mm: 0.305 }
+  stainless_304:
+    label: Stainless 304
+    density_g_cm3: 8.0
+    sheet_usd_per_kg: 5.2
+    cutting_multiplier: 1.35
+    gauge_material_family: stainless_steel
+    k_factor: 0.45
+    gauges:
+      - { gauge: 8, thickness_mm: 4.365 }
+      - { gauge: 9, thickness_mm: 3.968 }
+      - { gauge: 10, thickness_mm: 3.571 }
+      - { gauge: 11, thickness_mm: 3.175 }
+      - { gauge: 12, thickness_mm: 2.778 }
+      - { gauge: 14, thickness_mm: 1.984 }
+      - { gauge: 16, thickness_mm: 1.587 }
+      - { gauge: 18, thickness_mm: 1.270 }
+      - { gauge: 20, thickness_mm: 0.9525 }
+      - { gauge: 22, thickness_mm: 0.7937 }
+      - { gauge: 24, thickness_mm: 0.635 }
+      - { gauge: 26, thickness_mm: 0.476 }
+      - { gauge: 28, thickness_mm: 0.396 }
+      - { gauge: 30, thickness_mm: 0.3175 }
+  galvanized_steel:
+    label: Galvanized steel
+    density_g_cm3: 7.85
+    sheet_usd_per_kg: 2.7
+    cutting_multiplier: 1.05
+    gauge_material_family: galvanized_steel
+    k_factor: 0.44
+    gauges:
+      - { gauge: 8, thickness_mm: 4.269 }
+      - { gauge: 9, thickness_mm: 3.891 }
+      - { gauge: 10, thickness_mm: 3.510 }
+      - { gauge: 11, thickness_mm: 3.1318 }
+      - { gauge: 12, thickness_mm: 2.753 }
+      - { gauge: 14, thickness_mm: 1.9939 }
+      - { gauge: 16, thickness_mm: 1.6129 }
+      - { gauge: 18, thickness_mm: 1.310 }
+      - { gauge: 20, thickness_mm: 1.005 }
+      - { gauge: 22, thickness_mm: 0.853 }
+      - { gauge: 24, thickness_mm: 0.701 }
+      - { gauge: 26, thickness_mm: 0.551 }
+      - { gauge: 28, thickness_mm: 0.474 }
+      - { gauge: 30, thickness_mm: 0.398 }
+finishes:
+  raw:
+    label: Raw
+    multiplier: 1.0
+    per_part_add_usd: 0.0
+    warnings: []
+  powder_coat:
+    label: Powder coat
+    multiplier: 1.12
+    per_part_add_usd: 6.0
+    warnings:
+      - powder_coat_color_and_masking_require_review
+  grained:
+    label: Grained/deburred
+    multiplier: 1.08
+    per_part_add_usd: 3.0
+    warnings: []
+lead_time_classes:
+  economy:
+    label: Economy
+    multiplier: 0.92
+    warnings: []
+  standard:
+    label: Standard
+    multiplier: 1.0
+    warnings: []
+  expedited:
+    label: Expedited
+    multiplier: 1.25
+    warnings:
+      - expedited_sheet_metal_subject_to_capacity
+quantity_tiers:
+  - min_quantity: 1
+    max_quantity: 9
+    multiplier: 1.0
+    warnings: []
+  - min_quantity: 10
+    max_quantity: 49
+    multiplier: 0.82
+    warnings: []
+  - min_quantity: 50
+    max_quantity: 249
+    multiplier: 0.68
+    warnings: []
+  - min_quantity: 250
+    max_quantity: null
+    multiplier: 0.55
+    warnings:
+      - production_sheet_metal_pricing_should_be_vendor_validated

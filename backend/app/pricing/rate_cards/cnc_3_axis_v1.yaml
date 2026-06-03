@@ -1,0 +1,124 @@
+version: cnc_3_axis_v1
+kind: budgetary_defaults
+process: cnc_3_axis_milling
+currency: USD
+
+shop_rates:
+  machine_hourly_usd: 85.0
+  setup_hourly_usd: 85.0
+  deburr_qc_hourly_usd: 50.0
+  minimum_order_usd: 125.0
+
+defaults:
+  stock_allowance_mm_per_side: 3.0
+  scrap_factor: 1.15
+  pre_cam_overhead_multiplier: 1.6
+  base_setup_programming_minutes: 45.0
+  complexity_setup_minutes_at_100: 30.0
+  base_deburr_qc_minutes_per_part: 2.0
+  finishing_minutes_per_100_cm2: 0.8
+  tooling_usd_per_part: 3.0
+
+materials:
+  aluminum_6061:
+    label: Aluminum 6061
+    density_g_cm3: 2.70
+    material_usd_per_kg: 8.0
+    machinability_multiplier: 1.0
+    material_removal_rate_cm3_min: 40.0
+  steel_1018:
+    label: Steel 1018
+    density_g_cm3: 7.87
+    material_usd_per_kg: 4.0
+    machinability_multiplier: 1.35
+    material_removal_rate_cm3_min: 20.0
+  stainless_304:
+    label: Stainless Steel 304
+    density_g_cm3: 8.00
+    material_usd_per_kg: 9.0
+    machinability_multiplier: 2.0
+    material_removal_rate_cm3_min: 10.0
+  brass_c360:
+    label: Brass C360
+    density_g_cm3: 8.50
+    material_usd_per_kg: 12.0
+    machinability_multiplier: 0.9
+    material_removal_rate_cm3_min: 35.0
+  delrin:
+    label: Delrin Acetal
+    density_g_cm3: 1.41
+    material_usd_per_kg: 15.0
+    machinability_multiplier: 0.75
+    material_removal_rate_cm3_min: 60.0
+
+tolerance_classes:
+  standard:
+    label: Standard
+    multiplier: 1.0
+    warnings: []
+  tight:
+    label: Tight
+    multiplier: 1.25
+    warnings: []
+  precision:
+    label: Precision
+    multiplier: 1.6
+    warnings:
+      - manual_review_recommended
+
+finishes:
+  as_machined:
+    label: As machined
+    multiplier: 1.0
+    per_part_add_usd: 0.0
+    warnings: []
+  bead_blasted:
+    label: Bead blasted
+    multiplier: 1.0
+    per_part_add_usd: 8.0
+    warnings: []
+  anodized_clear:
+    label: Clear anodized
+    multiplier: 1.0
+    per_part_add_usd: 20.0
+    warnings:
+      - finish_material_compatibility_should_be_verified
+
+lead_time_classes:
+  economy:
+    label: Economy
+    multiplier: 0.95
+    warnings: []
+  standard:
+    label: Standard
+    multiplier: 1.0
+    warnings: []
+  expedited:
+    label: Expedited
+    multiplier: 1.35
+    warnings:
+      - expedited_lead_time_subject_to_capacity
+
+quantity_tiers:
+  - min_quantity: 1
+    max_quantity: 4
+    multiplier: 1.0
+    warnings: []
+  - min_quantity: 5
+    max_quantity: 24
+    multiplier: 0.9
+    warnings: []
+  - min_quantity: 25
+    max_quantity: 99
+    multiplier: 0.82
+    warnings: []
+  - min_quantity: 100
+    max_quantity: null
+    multiplier: 0.75
+    warnings:
+      - production_pricing_should_be_vendor_validated
+
+feature_operations:
+  through_hole_usd_each: 4.0
+  blind_hole_usd_each: 6.0
+  pocket_usd_each: 12.0

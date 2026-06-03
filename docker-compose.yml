@@ -1,0 +1,33 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile_inline: |
+        FROM mambaorg/micromamba:1.5.10
+
+        COPY --chown=$$MAMBA_USER:$$MAMBA_USER environment.yml /tmp/environment.yml
+        RUN micromamba install -y -n base -f /tmp/environment.yml \
+            && micromamba clean --all --yes
+
+        WORKDIR /workspace
+        ENV PYTHONUNBUFFERED=1
+
+        ENTRYPOINT ["micromamba", "run", "-n", "base"]
+        CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    working_dir: /workspace
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/workspace
+
+  frontend:
+    image: node:22-alpine
+    working_dir: /workspace
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+    volumes:
+      - ./frontend:/workspace
+      - /workspace/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"

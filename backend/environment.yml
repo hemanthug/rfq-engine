@@ -1,0 +1,15 @@
+name: rfq-engine-backend
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pythonocc-core=7.9.3
+  - fastapi=0.124.*
+  - python-multipart=0.0.*
+  - uvicorn=0.38.*
+  - pydantic=2.*
+  - pydantic-settings=2.*
+  - httpx=0.28.*
+  - pyyaml=6.*
+  - pytest=8.4.*
+  - numpy=2.2.*
