@@ -1,9 +1,11 @@
-import { AlertTriangle, Calculator, CheckCircle2, FileUp, Loader2, SlidersHorizontal } from "lucide-react";
-import { ChangeEvent, FormEvent, useMemo, useRef, useState } from "react";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { submitCadPreview, submitCncQuote, submitMoldingQuote, submitSheetMetalQuote } from "./api";
+import { LoadingSteps } from "./components/LoadingSteps";
 import { MeshPreview } from "./components/MeshPreview";
 import type {
   CadPreviewWorkflowResult,
+  FaceAnalysis,
   ManufacturingProcess,
   MoldingFormValues,
   MoldingQuoteWorkflowResult,
@@ -12,6 +14,7 @@ import type {
   SheetMetalFormValues,
   SheetMetalQuoteWorkflowResult,
   StepParseResult,
+  WarningMarker,
 } from "./types";
 
 const DEFAULT_CNC_VALUES: QuoteFormValues = {
@@ -72,6 +75,24 @@ const processOptions: { value: ManufacturingProcess; label: string; implemented:
   { value: "3d_printing", label: "3D printing", implemented: false },
 ];
 
+const QUOTE_DEBOUNCE_MS = 450;
+
+const QUOTE_STEPS = [
+  "Analyzing geometry",
+  "Extracting features",
+  "Applying material & rates",
+  "Calculating price",
+];
+
+function isImplementedProcess(process: ManufacturingProcess) {
+  return process === "cnc" || process === "injection_molding" || process === "sheet_metal";
+}
+
+function parsePositiveInt(value: string, fallback: number) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 export function App() {
   const [process, setProcess] = useState<ManufacturingProcess>("cnc");
   const [file, setFile] = useState<File | null>(null);
@@ -86,16 +107,84 @@ export function App() {
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
   const previewRequestId = useRef(0);
+  const quoteRequestId = useRef(0);
   const hasManualProcessSelection = useRef(false);
 
   const activeResult =
     process === "cnc" ? cncResult : process === "injection_molding" ? moldingResult : process === "sheet_metal" ? sheetMetalResult : null;
   const cadFacts = previewResult?.source ?? activeResult?.quote.source.source;
   const preview = previewResult?.preview ?? activeResult?.preview ?? null;
-  const canSubmit =
-    file !== null && !isQuoteLoading && (process === "cnc" || process === "injection_molding" || process === "sheet_metal");
+  const canQuote = file !== null && isImplementedProcess(process) && previewResult !== null && !isPreviewLoading;
   const activeComplexity = activeResult?.quote.source.complexity.score;
   const processFit = previewResult?.process_fit ?? null;
+
+  const { markers: warningMarkers, badges: warningBadges } = useMemo(
+    () => buildWarningMarkers(activeResult?.quote.source.faces ?? [], activeResult?.workflow.warnings ?? []),
+    [activeResult],
+  );
+
+  const runQuote = useCallback(async () => {
+    if (!file || !isImplementedProcess(process)) {
+      return;
+    }
+
+    const requestId = quoteRequestId.current + 1;
+    quoteRequestId.current = requestId;
+    setIsQuoteLoading(true);
+    setError(null);
+
+    try {
+      if (process === "cnc") {
+        const result = await submitCncQuote(file, cncValues);
+        if (quoteRequestId.current !== requestId) {
+          return;
+        }
+        setCncResult(result);
+        setMoldingResult(null);
+        setSheetMetalResult(null);
+      } else if (process === "injection_molding") {
+        const result = await submitMoldingQuote(file, moldingValues);
+        if (quoteRequestId.current !== requestId) {
+          return;
+        }
+        setMoldingResult(result);
+        setCncResult(null);
+        setSheetMetalResult(null);
+      } else if (process === "sheet_metal") {
+        const result = await submitSheetMetalQuote(file, sheetMetalValues);
+        if (quoteRequestId.current !== requestId) {
+          return;
+        }
+        setSheetMetalResult(result);
+        setCncResult(null);
+        setMoldingResult(null);
+      }
+    } catch (requestError) {
+      if (quoteRequestId.current !== requestId) {
+        return;
+      }
+      setCncResult(null);
+      setMoldingResult(null);
+      setSheetMetalResult(null);
+      setError(requestError instanceof Error ? requestError.message : "Quote request failed.");
+    } finally {
+      if (quoteRequestId.current === requestId) {
+        setIsQuoteLoading(false);
+      }
+    }
+  }, [file, process, cncValues, moldingValues, sheetMetalValues]);
+
+  useEffect(() => {
+    if (!canQuote) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void runQuote();
+    }, QUOTE_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [canQuote, runQuote]);
 
   async function onFileChange(event: ChangeEvent<HTMLInputElement>) {
     const selectedFile = event.target.files?.[0] ?? null;
@@ -134,42 +223,20 @@ export function App() {
     }
   }
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!file) {
-      setError("Select a STEP or STP file first.");
-      return;
-    }
-    setIsQuoteLoading(true);
-    setError(null);
-    try {
-      if (process === "cnc") {
-        setCncResult(await submitCncQuote(file, cncValues));
-        setMoldingResult(null);
-        setSheetMetalResult(null);
-      } else if (process === "injection_molding") {
-        setMoldingResult(await submitMoldingQuote(file, moldingValues));
-        setCncResult(null);
-        setSheetMetalResult(null);
-      } else if (process === "sheet_metal") {
-        setSheetMetalResult(await submitSheetMetalQuote(file, sheetMetalValues));
-        setCncResult(null);
-        setMoldingResult(null);
-      } else {
-        throw new Error(`${processLabel(process)} quoting is not implemented yet.`);
-      }
-    } catch (requestError) {
-      setCncResult(null);
-      setMoldingResult(null);
-      setSheetMetalResult(null);
-      setError(requestError instanceof Error ? requestError.message : "Quote request failed.");
-    } finally {
-      setIsQuoteLoading(false);
-    }
-  }
-
   const dimensions = useMemo(() => formatDimensions(cadFacts), [cadFacts]);
-  const quoteLabel = `${processLabel(process)} quote`;
+  function startNewQuote() {
+    previewRequestId.current += 1;
+    quoteRequestId.current += 1;
+    setFile(null);
+    setPreviewResult(null);
+    setCncResult(null);
+    setMoldingResult(null);
+    setSheetMetalResult(null);
+    setError(null);
+    setIsPreviewLoading(false);
+    setIsQuoteLoading(false);
+    hasManualProcessSelection.current = false;
+  }
 
   function selectProcess(nextProcess: ManufacturingProcess) {
     hasManualProcessSelection.current = true;
@@ -183,113 +250,119 @@ export function App() {
     <main className="app-shell">
       <header className="topbar">
         <div>
-          <h1>RFQ Engine</h1>
-          <p>Budgetary quoting from real STEP geometry</p>
+          <h1>RFQ Generator</h1>
+          <p>Instant budgetary quoting from real STEP geometry</p>
         </div>
         <div className="status-strip">
-          <span>OpenCascade backend</span>
-          <span>STEP-derived preview mesh</span>
+          <span>STEP geometry kernel</span>
+          <span>Live preview mesh</span>
         </div>
       </header>
 
-      <div className="workspace">
+      <div className={file ? "workspace" : "workspace workspace-empty"}>
+        {file && (
+          <div className="preview-stage">
+            <MeshPreview
+              preview={preview}
+              isLoading={isPreviewLoading}
+              markers={warningMarkers}
+              onNewQuote={startNewQuote}
+            />
+            <aside className="price-rail" aria-label="Quote summary">
+              <div className="price-rail-head">
+                <h2>Quote</h2>
+                <span>{processLabel(process)}</span>
+              </div>
+              <div className="price-rail-body">
+                {process === "cnc" ? (
+                  <CncQuoteSummary result={cncResult} isLoading={isQuoteLoading} hasFile={file !== null} />
+                ) : process === "injection_molding" ? (
+                  <MoldingQuoteSummary result={moldingResult} isLoading={isQuoteLoading} hasFile={file !== null} />
+                ) : process === "sheet_metal" ? (
+                  <SheetMetalQuoteSummary result={sheetMetalResult} isLoading={isQuoteLoading} hasFile={file !== null} />
+                ) : (
+                  <UnsupportedQuoteSummary process={process} />
+                )}
+              </div>
+            </aside>
+          </div>
+        )}
+        <div className="left-rail">
+        {!file && (
         <section className="control-panel">
-          <form onSubmit={onSubmit} className="quote-form">
+          <div className="quote-form">
             <div className="section-heading">
-              <FileUp size={18} />
               <h2>Upload</h2>
             </div>
             <label className="file-input">
               <input type="file" accept=".step,.stp" onChange={(event) => void onFileChange(event)} />
-              <span>{isPreviewLoading ? "Loading preview" : file ? file.name : "Choose STEP/STP file"}</span>
+              <span>{isPreviewLoading ? "Analyzing STEP file…" : "Drop a STEP / STP file, or click to browse"}</span>
             </label>
-            {file && <p className="file-meta">{formatBytes(file.size)}</p>}
-            <MeshPreview preview={preview} isLoading={isPreviewLoading} />
-
-            <div className="section-heading">
-              <SlidersHorizontal size={18} />
-              <h2>Process</h2>
-            </div>
-            {processFit && <ProcessRecommendationNote processFit={processFit} />}
-            <div className="process-toggle process-toggle-four" role="group" aria-label="Manufacturing process">
-              {processOptions.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={process === option.value ? "active" : ""}
-                  onClick={() => selectProcess(option.value)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-
-            {process === "cnc" ? (
-              <CncInputs values={cncValues} onChange={setCncValues} />
-            ) : process === "injection_molding" ? (
-              <MoldingInputs values={moldingValues} onChange={setMoldingValues} />
-            ) : process === "sheet_metal" ? (
-              <SheetMetalInputs values={sheetMetalValues} onChange={setSheetMetalValues} />
-            ) : (
-              <UnsupportedInputs process={process} />
-            )}
-
-            <button className="primary-action" type="submit" disabled={!canSubmit}>
-              {isQuoteLoading ? <Loader2 className="spin" size={18} /> : <Calculator size={18} />}
-              <span>{isQuoteLoading ? "Quoting" : "Generate Quote"}</span>
-            </button>
-          </form>
-        </section>
-
-        <section className="main-panel">
-          <div className="detail-grid">
-            <section className="summary-panel">
-              <h2>CAD Facts</h2>
-              <Metric label="Dimensions" value={dimensions} />
-              <Metric
-                label="Source units"
-                value={
-                  cadFacts
-                    ? `${cadFacts.diagnostics.source_length_units.join(", ")} -> ${cadFacts.diagnostics.canonical_unit}`
-                    : "Pending"
-                }
-              />
-              <Metric label="Volume" value={cadFacts ? `${cadFacts.mass_properties.volume.toFixed(1)} mm3` : "Pending"} />
-              <Metric
-                label="Surface area"
-                value={cadFacts ? `${cadFacts.mass_properties.surface_area.toFixed(1)} mm2` : "Pending"}
-              />
-              <Metric
-                label="Faces / edges"
-                value={cadFacts ? `${cadFacts.topology.faces} / ${cadFacts.topology.edges}` : "Pending"}
-              />
-              <Metric label="Complexity" value={activeComplexity !== undefined ? String(activeComplexity) : "Pending"} />
-            </section>
-
-            <section className="summary-panel">
-              <h2>{quoteLabel}</h2>
-              {process === "cnc" ? (
-                <CncQuoteSummary result={cncResult} />
-              ) : process === "injection_molding" ? (
-                <MoldingQuoteSummary result={moldingResult} />
-              ) : process === "sheet_metal" ? (
-                <SheetMetalQuoteSummary result={sheetMetalResult} />
-              ) : (
-                <UnsupportedQuoteSummary process={process} />
-              )}
-            </section>
           </div>
+        </section>
+        )}
+
+        {file && (
+          <section className="summary-panel">
+            <h2>CAD Facts</h2>
+            <Metric label="Dimensions" value={dimensions} />
+            <Metric
+              label="Source units"
+              value={
+                cadFacts
+                  ? `${cadFacts.diagnostics.source_length_units.join(", ")} -> ${cadFacts.diagnostics.canonical_unit}`
+                  : "Pending"
+              }
+            />
+            <Metric label="Volume" value={cadFacts ? `${cadFacts.mass_properties.volume.toFixed(1)} mm3` : "Pending"} />
+            <Metric
+              label="Surface area"
+              value={cadFacts ? `${cadFacts.mass_properties.surface_area.toFixed(1)} mm2` : "Pending"}
+            />
+            <Metric
+              label="Faces / edges"
+              value={cadFacts ? `${cadFacts.topology.faces} / ${cadFacts.topology.edges}` : "Pending"}
+            />
+            <Metric label="Complexity" value={activeComplexity !== undefined ? String(activeComplexity) : "Pending"} />
+          </section>
+        )}
+        </div>
+
+        {file && (
+        <section className="main-panel">
+            <section className="summary-panel quote-panel">
+              <div className="parameter-panel">
+                <div className="section-heading">
+                  <h2>Process</h2>
+                </div>
+                {processFit && <ProcessRecommendationNote processFit={processFit} />}
+                <div className="process-toggle process-toggle-four" role="group" aria-label="Manufacturing process">
+                  {processOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={process === option.value ? "active" : ""}
+                      onClick={() => selectProcess(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                {!isImplementedProcess(process) && <UnsupportedInputs process={process} />}
+              </div>
+              {canQuote && process === "cnc" ? (
+                <CncInputs values={cncValues} onChange={setCncValues} />
+              ) : canQuote && process === "injection_molding" ? (
+                <MoldingInputs values={moldingValues} onChange={setMoldingValues} />
+              ) : canQuote && process === "sheet_metal" ? (
+                <SheetMetalInputs values={sheetMetalValues} onChange={setSheetMetalValues} />
+              ) : null}
+            </section>
 
           {error && (
             <div className="notice error">
               <AlertTriangle size={18} />
               <span>{error}</span>
-            </div>
-          )}
-          {activeResult && (
-            <div className="notice success">
-              <CheckCircle2 size={18} />
-              <span>Quote completed in {activeResult.workflow.elapsed_ms.toFixed(0)} ms for {activeResult.upload.filename}.</span>
             </div>
           )}
           {previewResult && !activeResult && (
@@ -299,12 +372,21 @@ export function App() {
             </div>
           )}
           {activeResult && (
-            <section className="messages">
-              <MessageList title="Warnings" items={activeResult.workflow.warnings} />
-              <MessageList title="Assumptions" items={activeResult.quote.assumptions} />
-            </section>
+            <details className="messages-disclosure">
+              <summary>
+                <span className="disclosure-label">Warnings &amp; Assumptions</span>
+                <span className="disclosure-counts">
+                  {activeResult.workflow.warnings.length} warnings · {activeResult.quote.assumptions.length} assumptions
+                </span>
+              </summary>
+              <section className="messages">
+                <MessageList title="Warnings" items={activeResult.workflow.warnings} badges={warningBadges} />
+                <MessageList title="Assumptions" items={activeResult.quote.assumptions} />
+              </section>
+            </details>
           )}
         </section>
+        )}
       </div>
     </main>
   );
@@ -312,10 +394,9 @@ export function App() {
 
 function CncInputs({ values, onChange }: { values: QuoteFormValues; onChange: (values: QuoteFormValues) => void }) {
   return (
-    <>
+    <div className="parameter-panel">
       <div className="section-heading">
-        <Calculator size={18} />
-        <h2>CNC Inputs</h2>
+        <h2>Parameters</h2>
       </div>
       <label>
         Material
@@ -333,7 +414,7 @@ function CncInputs({ values, onChange }: { values: QuoteFormValues; onChange: (v
           type="number"
           min="1"
           value={values.quantity}
-          onChange={(event) => onChange({ ...values, quantity: Number(event.target.value) })}
+          onChange={(event) => onChange({ ...values, quantity: parsePositiveInt(event.target.value, values.quantity) })}
         />
       </label>
       <label>
@@ -361,7 +442,7 @@ function CncInputs({ values, onChange }: { values: QuoteFormValues; onChange: (v
         </select>
       </label>
       <NotesField value={values.notes} onChange={(notes) => onChange({ ...values, notes })} />
-    </>
+    </div>
   );
 }
 
@@ -373,10 +454,9 @@ function MoldingInputs({
   onChange: (values: MoldingFormValues) => void;
 }) {
   return (
-    <>
+    <div className="parameter-panel">
       <div className="section-heading">
-        <Calculator size={18} />
-        <h2>Molding Inputs</h2>
+        <h2>Parameters</h2>
       </div>
       <label>
         Material
@@ -395,7 +475,7 @@ function MoldingInputs({
             type="number"
             min="1"
             value={values.quantity}
-            onChange={(event) => onChange({ ...values, quantity: Number(event.target.value) })}
+            onChange={(event) => onChange({ ...values, quantity: parsePositiveInt(event.target.value, values.quantity) })}
           />
         </label>
         <label>
@@ -404,7 +484,7 @@ function MoldingInputs({
             type="number"
             min="1"
             value={values.annual_volume}
-            onChange={(event) => onChange({ ...values, annual_volume: Number(event.target.value) })}
+            onChange={(event) => onChange({ ...values, annual_volume: parsePositiveInt(event.target.value, values.annual_volume) })}
           />
         </label>
       </div>
@@ -446,7 +526,7 @@ function MoldingInputs({
         </select>
       </label>
       <NotesField value={values.notes} onChange={(notes) => onChange({ ...values, notes })} />
-    </>
+    </div>
   );
 }
 
@@ -458,10 +538,9 @@ function SheetMetalInputs({
   onChange: (values: SheetMetalFormValues) => void;
 }) {
   return (
-    <>
+    <div className="parameter-panel">
       <div className="section-heading">
-        <Calculator size={18} />
-        <h2>Sheet Metal Inputs</h2>
+        <h2>Parameters</h2>
       </div>
       <label>
         Material
@@ -479,7 +558,7 @@ function SheetMetalInputs({
           type="number"
           min="1"
           value={values.quantity}
-          onChange={(event) => onChange({ ...values, quantity: Number(event.target.value) })}
+          onChange={(event) => onChange({ ...values, quantity: parsePositiveInt(event.target.value, values.quantity) })}
         />
       </label>
       <label>
@@ -499,7 +578,7 @@ function SheetMetalInputs({
         </select>
       </label>
       <NotesField value={values.notes} onChange={(notes) => onChange({ ...values, notes })} />
-    </>
+    </div>
   );
 }
 
@@ -507,7 +586,6 @@ function UnsupportedInputs({ process }: { process: ManufacturingProcess }) {
   return (
     <>
       <div className="section-heading">
-        <Calculator size={18} />
         <h2>{processLabel(process)} Inputs</h2>
       </div>
       <p className="muted">
@@ -526,9 +604,23 @@ function NotesField({ value, onChange }: { value: string; onChange: (value: stri
   );
 }
 
-function CncQuoteSummary({ result }: { result: QuoteWorkflowResult | null }) {
+function CncQuoteSummary({
+  result,
+  isLoading,
+  hasFile,
+}: {
+  result: QuoteWorkflowResult | null;
+  isLoading: boolean;
+  hasFile: boolean;
+}) {
+  if (!hasFile) {
+    return <p className="muted">Upload a STEP file to calculate a budgetary CNC quote.</p>;
+  }
+  if (!result && isLoading) {
+    return <LoadingSteps title="Pricing CNC part" steps={QUOTE_STEPS} />;
+  }
   if (!result) {
-    return <p className="muted">Submit a STEP file to calculate a budgetary CNC quote.</p>;
+    return <p className="muted">Adjust parameters below to generate a budgetary CNC quote.</p>;
   }
 
   return (
@@ -546,9 +638,23 @@ function CncQuoteSummary({ result }: { result: QuoteWorkflowResult | null }) {
   );
 }
 
-function MoldingQuoteSummary({ result }: { result: MoldingQuoteWorkflowResult | null }) {
+function MoldingQuoteSummary({
+  result,
+  isLoading,
+  hasFile,
+}: {
+  result: MoldingQuoteWorkflowResult | null;
+  isLoading: boolean;
+  hasFile: boolean;
+}) {
+  if (!hasFile) {
+    return <p className="muted">Upload a STEP file to calculate a budgetary injection molding quote.</p>;
+  }
+  if (!result && isLoading) {
+    return <LoadingSteps title="Pricing molded part" steps={QUOTE_STEPS} />;
+  }
   if (!result) {
-    return <p className="muted">Submit a STEP file to calculate a budgetary injection molding quote.</p>;
+    return <p className="muted">Adjust parameters below to generate a budgetary injection molding quote.</p>;
   }
 
   return (
@@ -584,9 +690,23 @@ function MoldingQuoteSummary({ result }: { result: MoldingQuoteWorkflowResult | 
   );
 }
 
-function SheetMetalQuoteSummary({ result }: { result: SheetMetalQuoteWorkflowResult | null }) {
+function SheetMetalQuoteSummary({
+  result,
+  isLoading,
+  hasFile,
+}: {
+  result: SheetMetalQuoteWorkflowResult | null;
+  isLoading: boolean;
+  hasFile: boolean;
+}) {
+  if (!hasFile) {
+    return <p className="muted">Upload a STEP file to calculate a budgetary sheet metal quote.</p>;
+  }
+  if (!result && isLoading) {
+    return <LoadingSteps title="Pricing sheet metal part" steps={QUOTE_STEPS} />;
+  }
   if (!result) {
-    return <p className="muted">Submit a STEP file to calculate a budgetary sheet metal quote.</p>;
+    return <p className="muted">Adjust parameters below to generate a budgetary sheet metal quote.</p>;
   }
 
   const signals = result.quote.diagnostics.geometry_signals;
@@ -653,17 +773,79 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function MessageList({ title, items }: { title: string; items: string[] }) {
+function MessageList({ title, items, badges }: { title: string; items: string[]; badges?: Map<string, number[]> }) {
   return (
     <section>
       <h2>{title}</h2>
       <ul>
-        {items.map((item) => (
-          <li key={item}>{item.replace(/_/g, " ")}</li>
-        ))}
+        {items.map((item) => {
+          const markerNumbers = badges?.get(item);
+          return (
+            <li key={item} className={markerNumbers?.length ? "message-pinned" : undefined}>
+              {markerNumbers && markerNumbers.length > 0 && (
+                <span className="warning-badges">
+                  {markerNumbers.map((number) => (
+                    <span key={number} className="warning-pin warning-pin-sm">
+                      {number}
+                    </span>
+                  ))}
+                </span>
+              )}
+              {item.replace(/_/g, " ")}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
+}
+
+const FACE_ID_PATTERN = /face_\d{4}/g;
+
+function buildWarningMarkers(
+  faces: FaceAnalysis[],
+  warnings: string[],
+): { markers: WarningMarker[]; badges: Map<string, number[]> } {
+  const faceById = new Map(faces.map((face) => [face.face_id, face]));
+  const markersByFace = new Map<string, WarningMarker>();
+  const badges = new Map<string, number[]>();
+  let nextNumber = 1;
+
+  for (const warning of warnings) {
+    const referencedFaceIds = Array.from(new Set(warning.match(FACE_ID_PATTERN) ?? []));
+    const numbersForWarning: number[] = [];
+
+    for (const faceId of referencedFaceIds) {
+      const face = faceById.get(faceId);
+      if (!face || !face.axis_origin) {
+        continue;
+      }
+
+      let marker = markersByFace.get(faceId);
+      if (!marker) {
+        marker = {
+          number: nextNumber++,
+          faceId,
+          position: [face.axis_origin[0], face.axis_origin[1], face.axis_origin[2]],
+          direction: face.axis_direction
+            ? [face.axis_direction[0], face.axis_direction[1], face.axis_direction[2]]
+            : null,
+          radius: face.radius,
+          warnings: [],
+        };
+        markersByFace.set(faceId, marker);
+      }
+      marker.warnings.push(warning);
+      numbersForWarning.push(marker.number);
+    }
+
+    if (numbersForWarning.length > 0) {
+      badges.set(warning, Array.from(new Set(numbersForWarning)));
+    }
+  }
+
+  const markers = Array.from(markersByFace.values()).sort((a, b) => a.number - b.number);
+  return { markers, badges };
 }
 
 function formatDimensions(cadFacts: StepParseResult | undefined) {
@@ -677,16 +859,6 @@ function formatDimensions(cadFacts: StepParseResult | undefined) {
     return `${mm} (${inches})`;
   }
   return mm;
-}
-
-function formatBytes(size: number) {
-  if (size < 1024) {
-    return `${size} bytes`;
-  }
-  if (size < 1024 * 1024) {
-    return `${(size / 1024).toFixed(1)} KB`;
-  }
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function processLabel(process: ManufacturingProcess) {

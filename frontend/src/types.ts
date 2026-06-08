@@ -23,6 +23,30 @@ export type PreviewMeshResult = {
   };
 };
 
+export type FaceAnalysis = {
+  face_id: string;
+  surface_type: string;
+  area: number;
+  tolerance: number;
+  edge_ids: string[];
+  inner_wire_count: number;
+  outer_wire_count: number;
+  normal: number[] | null;
+  axis_origin: number[] | null;
+  axis_direction: number[] | null;
+  radius: number | null;
+  semi_angle: number | null;
+};
+
+export type WarningMarker = {
+  number: number;
+  faceId: string;
+  position: [number, number, number];
+  direction: [number, number, number] | null;
+  radius: number | null;
+  warnings: string[];
+};
+
 export type PricingLineItem = {
   code: string;
   label: string;
@@ -95,6 +119,7 @@ export type CncQuoteWorkflowResult = {
     currency: string;
     source: {
       source: StepParseResult;
+      faces: FaceAnalysis[];
       holes: unknown[];
       pockets: unknown[];
       complexity: {
@@ -137,6 +162,7 @@ export type MoldingQuoteWorkflowResult = {
     currency: string;
     source: {
       source: StepParseResult;
+      faces: FaceAnalysis[];
       holes: unknown[];
       pockets: unknown[];
       complexity: {
@@ -208,6 +234,7 @@ export type SheetMetalQuoteWorkflowResult = {
     currency: string;
     source: {
       source: StepParseResult;
+      faces: FaceAnalysis[];
       holes: unknown[];
       pockets: unknown[];
       complexity: {
