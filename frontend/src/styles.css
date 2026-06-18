@@ -139,6 +139,85 @@ input[type="number"] {
   width: 6px;
 }
 
+.calibration-banner {
+  align-items: center;
+  background: color-mix(in oklch, var(--accent-wash) 72%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--accent) 24%, transparent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  color: var(--accent-strong);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin: 0 auto clamp(20px, 3vw, 34px);
+  max-width: 1440px;
+  padding: 13px 15px;
+}
+
+.calibration-banner div {
+  display: grid;
+  gap: 3px;
+}
+
+.calibration-banner strong {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.calibration-banner span {
+  color: color-mix(in oklch, var(--accent-strong) 72%, var(--ink-soft));
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.calibration-banner button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid color-mix(in oklch, var(--accent) 22%, transparent);
+  border-radius: 999px;
+  color: var(--accent-strong);
+  cursor: pointer;
+  display: inline-flex;
+  flex: none;
+  height: 30px;
+  justify-content: center;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  width: 30px;
+}
+
+.calibration-banner button:hover {
+  background: var(--surface);
+  border-color: var(--accent);
+}
+
+.calibration-restore {
+  display: flex;
+  justify-content: center;
+  margin: -14px auto clamp(18px, 2.2vw, 28px);
+  max-width: 1440px;
+}
+
+.calibration-restore button {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 12px;
+  transition: border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.calibration-restore button:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  transform: translateY(-1px);
+}
+
 /* ---------- Workspace ---------- */
 .workspace {
   align-items: start;
@@ -441,6 +520,43 @@ textarea {
 .price-rail-head span {
   color: var(--ink-faint);
   font-size: 12px;
+}
+
+.price-rail-actions {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.quote-download-action {
+  align-items: center;
+  background: var(--accent);
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  gap: 8px;
+  justify-content: center;
+  letter-spacing: 0.01em;
+  margin-top: 16px;
+  min-height: 42px;
+  padding: 10px 12px;
+  transition: background 0.15s ease, transform 0.15s ease;
+  width: 100%;
+}
+
+.quote-download-action:hover {
+  background: var(--accent-strong);
+  transform: translateY(-1px);
+}
+
+.quote-download-action span {
+  color: #fff;
+  font-size: 13px;
 }
 
 .price-rail-body {

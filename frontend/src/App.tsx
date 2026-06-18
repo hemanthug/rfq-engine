@@ -1,8 +1,9 @@
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, X } from "lucide-react";
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { submitCadPreview, submitCncQuote, submitMoldingQuote, submitSheetMetalQuote } from "./api";
 import { LoadingSteps } from "./components/LoadingSteps";
 import { MeshPreview } from "./components/MeshPreview";
+import { downloadQuotePdf } from "./pdfQuote";
 import type {
   CadPreviewWorkflowResult,
   ManufacturingProcess,
@@ -82,6 +83,8 @@ const QUOTE_STEPS = [
   "Calculating price",
 ];
 
+const DISCLAIMER_STORAGE_KEY = "rfq-engine-pricing-disclaimer-dismissed";
+
 function isImplementedProcess(process: ManufacturingProcess) {
   return process === "cnc" || process === "injection_molding" || process === "sheet_metal";
 }
@@ -102,6 +105,7 @@ export function App() {
   const [moldingResult, setMoldingResult] = useState<MoldingQuoteWorkflowResult | null>(null);
   const [sheetMetalResult, setSheetMetalResult] = useState<SheetMetalQuoteWorkflowResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isDisclaimerVisible, setIsDisclaimerVisible] = useState(() => localStorage.getItem(DISCLAIMER_STORAGE_KEY) !== "true");
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
   const previewRequestId = useRef(0);
@@ -239,6 +243,27 @@ export function App() {
     setSheetMetalResult(null);
   }
 
+  function dismissDisclaimer() {
+    localStorage.setItem(DISCLAIMER_STORAGE_KEY, "true");
+    setIsDisclaimerVisible(false);
+  }
+
+  function downloadActiveQuote() {
+    if (!activeResult) {
+      return;
+    }
+    try {
+      downloadQuotePdf(activeResult, process);
+    } catch (downloadError) {
+      setError(downloadError instanceof Error ? downloadError.message : "PDF download failed.");
+    }
+  }
+
+  function restoreDisclaimer() {
+    localStorage.removeItem(DISCLAIMER_STORAGE_KEY);
+    setIsDisclaimerVisible(true);
+  }
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -247,6 +272,27 @@ export function App() {
           <p>Instant budgetary quoting from real STEP geometry</p>
         </div>
       </header>
+
+      {isDisclaimerVisible ? (
+        <section className="calibration-banner" aria-label="Pricing calibration disclaimer">
+          <div>
+            <strong>Budgetary pricing uses example figures today.</strong>
+            <span>
+              Production deployments can be trained and calibrated from your historical quotes, then configured with your
+              actual material costs, machine rates, labor rates, margins, and pricing rules.
+            </span>
+          </div>
+          <button type="button" aria-label="Dismiss pricing disclaimer" onClick={dismissDisclaimer}>
+            <X size={16} />
+          </button>
+        </section>
+      ) : (
+        <div className="calibration-restore">
+          <button type="button" onClick={restoreDisclaimer}>
+            Pricing notice
+          </button>
+        </div>
+      )}
 
       <div className={file ? "workspace" : "workspace workspace-empty"}>
         {file && (
@@ -259,7 +305,9 @@ export function App() {
             <aside className="price-rail" aria-label="Quote summary">
               <div className="price-rail-head">
                 <h2>Quote</h2>
-                <span>{processLabel(process)}</span>
+                <div className="price-rail-actions">
+                  <span>{processLabel(process)}</span>
+                </div>
               </div>
               <div className="price-rail-body">
                 {process === "cnc" ? (
@@ -270,6 +318,12 @@ export function App() {
                   <SheetMetalQuoteSummary result={sheetMetalResult} isLoading={isQuoteLoading} hasFile={file !== null} />
                 ) : (
                   <UnsupportedQuoteSummary process={process} />
+                )}
+                {activeResult && (
+                  <button type="button" className="quote-download-action" onClick={downloadActiveQuote}>
+                    <Download size={17} />
+                    <span>Download sendable PDF quote</span>
+                  </button>
                 )}
               </div>
             </aside>

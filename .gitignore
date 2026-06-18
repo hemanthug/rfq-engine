@@ -16,6 +16,7 @@ env/
 
 uploads/
 tmp/
+outputs/
 *.step.tmp
 *.stp.tmp
 
