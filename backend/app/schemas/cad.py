@@ -52,7 +52,6 @@ class StepImportDiagnostics(BaseModel):
     shape_count: int
     shape_kind: str
     strict_solid: bool
-    warnings: list[str]
 
 
 class StepParseResult(BaseModel):

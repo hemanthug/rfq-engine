@@ -30,11 +30,6 @@ class SheetMetalBudgetaryPricer:
         quantity_tier = self.rate_card.quantity_tier(request.quantity)
         geometry = self._geometry_signals(features, material)
 
-        warnings = self._warnings(features, geometry)
-        warnings.extend(finish.warnings)
-        warnings.extend(lead_time.warnings)
-        warnings.extend(quantity_tier.warnings)
-
         line_items = [
             self._material_line_item(geometry, material, request.quantity),
             self._setup_line_item(),
@@ -111,8 +106,7 @@ class SheetMetalBudgetaryPricer:
             subtotal=subtotal,
             unit_price=_money(subtotal / request.quantity),
             quantity=request.quantity,
-            confidence=self._confidence(geometry, warnings),
-            warnings=sorted(set(warnings)),
+            confidence=self._confidence(geometry),
             assumptions=[
                 "budgetary_estimate_not_binding",
                 "flat_pattern_estimated_from_neutral_axis_unfold_metrics",
@@ -250,24 +244,11 @@ class SheetMetalBudgetaryPricer:
             },
         )
 
-    def _warnings(self, features: FeatureExtractionResult, geometry: dict[str, float]) -> list[str]:
-        warnings = [
-            "budgetary_estimate_not_binding",
-            "sheet_metal_dfm_not_performed",
-            "flat_pattern_estimated_from_neutral_axis_metrics",
-        ]
-        warnings.extend(features.diagnostics.warnings)
-        if geometry["bend_candidate_count"] == 0:
-            warnings.append("no_bends_detected_priced_as_flat_sheet_cut_part")
-        if geometry["sheet_metal_confidence_score"] < 70:
-            warnings.append("sheet_metal_classification_requires_review")
-        return warnings
-
-    def _confidence(self, geometry: dict[str, float], warnings: list[str]) -> float:
+    def _confidence(self, geometry: dict[str, float]) -> float:
         confidence = 0.68 if geometry["sheet_metal_confidence_score"] >= 80 else 0.55
         if geometry["bend_candidate_count"] == 0:
             confidence -= 0.05
-        if any("requires_review" in warning for warning in warnings):
+        if geometry["sheet_metal_confidence_score"] < 70:
             confidence -= 0.08
         return round(max(0.25, min(0.78, confidence)), 2)
 

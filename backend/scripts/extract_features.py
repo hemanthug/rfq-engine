@@ -32,7 +32,6 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Hole candidates: {len(result.holes)}")
     print(f"  Pocket candidates: {len(result.pockets)}")
     print(f"  Complexity score: {result.complexity.score}")
-    print(f"  Warnings: {result.diagnostics.warnings}")
     print(f"  Deferred feature types: {result.diagnostics.deferred_feature_types}")
     return 0
 

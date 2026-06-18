@@ -14,7 +14,6 @@ class QuoteUploadMetadata(BaseModel):
 
 class QuoteWorkflowMetadata(BaseModel):
     schema_version: str
-    warnings: list[str]
     elapsed_ms: float
 
 

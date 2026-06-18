@@ -57,7 +57,7 @@ def test_generated_box_produces_budgetary_cnc_line_items(tmp_path: Path) -> None
         "deburr_qc",
         "minimum_order_adjustment",
     } <= codes
-    assert "budgetary_estimate_not_binding" in result.warnings
+    assert "budgetary_estimate_not_binding" in result.assumptions
     assert "toolpaths_not_generated" in result.diagnostics.missing_or_inferred_values
     machine_time = _line(result, "machine_time")
     assert machine_time.details["profile_complexity_candidate_count"] == 0
@@ -111,7 +111,6 @@ def test_pulley_profile_complexity_increases_machine_time_without_pricing_teeth_
     assert machine_time.details["profile_complexity_multiplier"] > 1.0
     assert machine_time.amount > 15.62
     assert result.subtotal > 146.62
-    assert "profile_geometry_priced_as_machine_time_complexity" in result.warnings
 
 
 def test_shaft_profile_complexity_increases_machine_time_without_pricing_teeth_as_holes() -> None:
@@ -126,7 +125,6 @@ def test_shaft_profile_complexity_increases_machine_time_without_pricing_teeth_a
     assert feature_ops.amount == 0.0
     assert machine_time.details["profile_complexity_candidate_count"] == 12
     assert machine_time.details["profile_complexity_multiplier"] > 1.0
-    assert "profile_geometry_priced_as_machine_time_complexity" in result.warnings
 
 
 def test_quantity_tiers_reduce_effective_unit_price(tmp_path: Path) -> None:

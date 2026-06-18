@@ -55,13 +55,6 @@ class MoldingBudgetaryPricer:
         effective_request = request.model_copy(update={"cavities": selected_cavities})
 
         geometry = self._geometry_signals(features, material, selected_cavities)
-        warnings = self._warnings(features)
-        warnings.extend(mold_class.warnings)
-        warnings.extend(finish.warnings)
-        warnings.extend(lead_time.warnings)
-        warnings.extend(annual_volume_tier.warnings)
-        if mold_class.max_shots is not None and request.annual_volume > mold_class.max_shots:
-            warnings.append("annual_volume_exceeds_selected_mold_class_life")
 
         tooling_line_items = self._tooling_line_items(geometry, mold_class, finish, lead_time, selected_cavities)
         production_line_items = self._production_line_items(
@@ -102,8 +95,7 @@ class MoldingBudgetaryPricer:
             unit_price=_money(production_subtotal / effective_request.quantity),
             total_first_order_cost=total_first_order_cost,
             quantity=effective_request.quantity,
-            confidence=self._confidence(features, warnings),
-            warnings=sorted(set(warnings)),
+            confidence=self._confidence(features),
             assumptions=[
                 "budgetary_estimate_not_binding",
                 "dfm_not_performed",
@@ -460,30 +452,13 @@ class MoldingBudgetaryPricer:
             ),
         ]
 
-    def _warnings(self, features: FeatureExtractionResult) -> list[str]:
-        warnings = [
-            "budgetary_estimate_not_binding",
-            "dfm_not_performed",
-            "moldflow_not_performed",
-            "tooling_requires_engineering_review",
-            "parting_line_and_undercuts_not_analyzed",
-        ]
-        warnings.extend(features.diagnostics.warnings)
-        if features.complexity.score >= 70:
-            warnings.append("high_complexity_geometry_budgetary_confidence_reduced")
-        if self._profile_complexity_candidate_count(features) > 0:
-            warnings.append("profile_geometry_priced_as_molding_complexity")
-        return warnings
-
-    def _confidence(self, features: FeatureExtractionResult, warnings: list[str]) -> float:
+    def _confidence(self, features: FeatureExtractionResult) -> float:
         confidence = 0.58
         if features.complexity.score >= 70:
             confidence -= 0.12
         elif features.complexity.score >= 45:
             confidence -= 0.06
-        confidence -= min(0.10, len(features.diagnostics.warnings) * 0.02)
-        if any("review" in warning for warning in warnings):
-            confidence -= 0.05
+        confidence -= 0.05
         return round(max(0.25, min(0.72, confidence)), 2)
 
     def _profile_complexity_candidate_count(self, features: FeatureExtractionResult) -> int:

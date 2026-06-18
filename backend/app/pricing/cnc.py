@@ -24,11 +24,6 @@ class CncBudgetaryPricer:
         quantity_tier = self.rate_card.quantity_tier(request.quantity)
 
         geometry = self._geometry_signals(features, material)
-        warnings = self._warnings(features, request)
-        warnings.extend(tolerance.warnings)
-        warnings.extend(finish.warnings)
-        warnings.extend(lead_time.warnings)
-        warnings.extend(quantity_tier.warnings)
 
         assumptions = [
             "budgetary_estimate_not_binding",
@@ -122,8 +117,7 @@ class CncBudgetaryPricer:
             subtotal=subtotal,
             unit_price=_money(subtotal / request.quantity),
             quantity=request.quantity,
-            confidence=self._confidence(features, request, warnings),
-            warnings=sorted(set(warnings)),
+            confidence=self._confidence(features, request),
             assumptions=assumptions,
             diagnostics=CncPricingDiagnostics(
                 pricing_version=PRICING_VERSION,
@@ -292,41 +286,19 @@ class CncBudgetaryPricer:
             },
         )
 
-    def _warnings(self, features: FeatureExtractionResult, request: CncPricingRequest) -> list[str]:
-        warnings = [
-            "budgetary_estimate_not_binding",
-            "cnc_3_axis_only",
-            "turning_not_supported",
-            "threads_not_detected",
-            "counterbores_countersinks_not_detected",
-            "undercuts_not_analyzed",
-            "setup_orientation_not_analyzed",
-        ]
-        warnings.extend(features.diagnostics.warnings)
-        if features.complexity.score >= 70:
-            warnings.append("high_complexity_geometry_budgetary_confidence_reduced")
-        if self._profile_complexity_candidate_count(features) > 0:
-            warnings.append("profile_geometry_priced_as_machine_time_complexity")
-        if request.tolerance_class == "precision":
-            warnings.append("precision_tolerance_requires_manual_review")
-        if request.finish == "anodized_clear" and request.material != "aluminum_6061":
-            warnings.append("anodizing_requested_for_non_aluminum_material")
-        return warnings
-
-    def _confidence(self, features: FeatureExtractionResult, request: CncPricingRequest, warnings: list[str]) -> float:
+    def _confidence(self, features: FeatureExtractionResult, request: CncPricingRequest) -> float:
         confidence = 0.75
         if features.complexity.score >= 70:
             confidence -= 0.12
         elif features.complexity.score >= 45:
             confidence -= 0.06
-        confidence -= min(0.12, len(features.diagnostics.warnings) * 0.03)
         if request.tolerance_class == "tight":
             confidence -= 0.05
         elif request.tolerance_class == "precision":
             confidence -= 0.12
         if len(features.faces) > 50 or len(features.edges) > 120:
             confidence -= 0.08
-        if any("manual_review" in warning for warning in warnings):
+        if request.tolerance_class == "precision":
             confidence -= 0.06
         return round(max(0.25, min(0.90, confidence)), 2)
 

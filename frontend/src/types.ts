@@ -19,7 +19,6 @@ export type PreviewMeshResult = {
     angular_deflection_rad: number;
     is_relative: boolean;
     is_parallel: boolean;
-    warnings: string[];
   };
 };
 
@@ -38,15 +37,6 @@ export type FaceAnalysis = {
   semi_angle: number | null;
 };
 
-export type WarningMarker = {
-  number: number;
-  faceId: string;
-  position: [number, number, number];
-  direction: [number, number, number] | null;
-  radius: number | null;
-  warnings: string[];
-};
-
 export type PricingLineItem = {
   code: string;
   label: string;
@@ -63,7 +53,6 @@ export type RankedProcessRecommendation = {
   score: number;
   confidence: string;
   reasons: string[];
-  warnings: string[];
 };
 
 export type ProcessFitResult = {
@@ -71,7 +60,6 @@ export type ProcessFitResult = {
   ranked_processes: RankedProcessRecommendation[];
   confidence: string;
   reasons: string[];
-  warnings: string[];
   signals: Record<string, number>;
 };
 
@@ -107,7 +95,6 @@ export type CadPreviewWorkflowResult = {
   };
   workflow: {
     schema_version: string;
-    warnings: string[];
     elapsed_ms: number;
   };
 };
@@ -139,7 +126,6 @@ export type CncQuoteWorkflowResult = {
     unit_price: number;
     quantity: number;
     confidence: number;
-    warnings: string[];
     assumptions: string[];
   };
   preview: PreviewMeshResult;
@@ -150,7 +136,6 @@ export type CncQuoteWorkflowResult = {
   };
   workflow: {
     schema_version: string;
-    warnings: string[];
     elapsed_ms: number;
   };
 };
@@ -187,7 +172,6 @@ export type MoldingQuoteWorkflowResult = {
     total_first_order_cost: number;
     quantity: number;
     confidence: number;
-    warnings: string[];
     assumptions: string[];
     diagnostics: {
       pricing_version: string;
@@ -222,7 +206,6 @@ export type MoldingQuoteWorkflowResult = {
   };
   workflow: {
     schema_version: string;
-    warnings: string[];
     elapsed_ms: number;
   };
 };
@@ -253,7 +236,6 @@ export type SheetMetalQuoteWorkflowResult = {
     unit_price: number;
     quantity: number;
     confidence: number;
-    warnings: string[];
     assumptions: string[];
     diagnostics: {
       pricing_version: string;
@@ -271,7 +253,6 @@ export type SheetMetalQuoteWorkflowResult = {
   };
   workflow: {
     schema_version: string;
-    warnings: string[];
     elapsed_ms: number;
   };
 };

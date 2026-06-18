@@ -11,7 +11,6 @@ class PreviewMeshQuality(BaseModel):
     angular_deflection_rad: float
     is_relative: bool
     is_parallel: bool
-    warnings: list[str]
 
 
 class PreviewMeshResult(BaseModel):
@@ -35,7 +34,6 @@ class CadPreviewUploadMetadata(BaseModel):
 
 class CadPreviewWorkflowMetadata(BaseModel):
     schema_version: str
-    warnings: list[str]
     elapsed_ms: float
 
 

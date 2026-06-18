@@ -41,7 +41,6 @@ class MaterialRate(BaseModel):
 class MultiplierRate(BaseModel):
     label: str
     multiplier: float = Field(gt=0)
-    warnings: list[str] = Field(default_factory=list)
 
 
 class FinishRate(MultiplierRate):
@@ -52,7 +51,6 @@ class QuantityTier(BaseModel):
     min_quantity: int = Field(gt=0)
     max_quantity: int | None = Field(default=None, gt=0)
     multiplier: float = Field(gt=0)
-    warnings: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_range(self) -> "QuantityTier":

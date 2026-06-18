@@ -44,7 +44,6 @@ class CncPricingResult(BaseModel):
     unit_price: float
     quantity: int
     confidence: float
-    warnings: list[str]
     assumptions: list[str]
     diagnostics: CncPricingDiagnostics
 
@@ -93,7 +92,6 @@ class MoldingPricingResult(BaseModel):
     total_first_order_cost: float
     quantity: int
     confidence: float
-    warnings: list[str]
     assumptions: list[str]
     diagnostics: MoldingPricingDiagnostics
 
@@ -125,6 +123,5 @@ class SheetMetalPricingResult(BaseModel):
     unit_price: float
     quantity: int
     confidence: float
-    warnings: list[str]
     assumptions: list[str]
     diagnostics: SheetMetalPricingDiagnostics

@@ -92,7 +92,7 @@ def test_injection_molding_quote_upload_returns_tooling_production_and_preview(t
     assert result.quote.total_first_order_cost == result.quote.tooling_cost + result.quote.production_subtotal
     assert result.preview.triangle_count > 0
     assert result.preview.bbox.size == result.quote.source.source.bounding_box.size
-    assert "dfm_not_performed" in result.workflow.warnings
+    assert "dfm_not_performed" in result.quote.assumptions
 
 
 def test_sheet_metal_quote_upload_returns_quote_and_preview(tmp_path: Path) -> None:

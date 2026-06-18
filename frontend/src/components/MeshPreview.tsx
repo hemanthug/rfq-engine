@@ -1,11 +1,9 @@
 import { RotateCcw } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import type { PreviewMeshResult, WarningMarker } from "../types";
+import type { PreviewMeshResult } from "../types";
 import { LoadingSteps } from "./LoadingSteps";
-
-type HoverState = { marker: WarningMarker; x: number; y: number };
 
 const PREVIEW_STEPS = [
   "Reading STEP file",
@@ -15,47 +13,149 @@ const PREVIEW_STEPS = [
   "Preparing preview",
 ];
 
+type ViewId = "iso" | "front" | "back" | "top" | "bottom" | "left" | "right";
+
+type View = { id: ViewId; label: string; direction: [number, number, number]; up: [number, number, number] };
+
+const VIEWS: View[] = [
+  { id: "iso", label: "Iso", direction: [1, 0.7, 1], up: [0, 1, 0] },
+  { id: "front", label: "Front", direction: [0, 0, 1], up: [0, 1, 0] },
+  { id: "back", label: "Back", direction: [0, 0, -1], up: [0, 1, 0] },
+  { id: "top", label: "Top", direction: [0, 1, 0], up: [0, 0, -1] },
+  { id: "bottom", label: "Bottom", direction: [0, -1, 0], up: [0, 0, 1] },
+  { id: "left", label: "Left", direction: [-1, 0, 0], up: [0, 1, 0] },
+  { id: "right", label: "Right", direction: [1, 0, 0], up: [0, 1, 0] },
+];
+
+const VIEW_BY_ID = new Map(VIEWS.map((view) => [view.id, view]));
+
+// BoxGeometry material order: +x, -x, +y, -y, +z, -z
+const CUBE_FACE_VIEWS: ViewId[] = ["right", "left", "top", "bottom", "front", "back"];
+
+type RenderStyle = "edges" | "xray" | "normals";
+
+const RENDER_STYLES: { id: RenderStyle; label: string }[] = [
+  { id: "edges", label: "Edges" },
+  { id: "xray", label: "X-ray" },
+  { id: "normals", label: "Normals" },
+];
+
+function makeMeshMaterial(style: RenderStyle): THREE.Material {
+  switch (style) {
+    case "xray":
+      return new THREE.MeshStandardMaterial({
+        color: 0x6f8a87,
+        metalness: 0.1,
+        roughness: 0.5,
+        transparent: true,
+        opacity: 0.32,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+    case "normals":
+      return new THREE.MeshNormalMaterial({ flatShading: true, side: THREE.DoubleSide });
+    case "edges":
+    default:
+      return new THREE.MeshStandardMaterial({
+        color: 0x6f8a87,
+        metalness: 0.2,
+        roughness: 0.45,
+        side: THREE.DoubleSide,
+      });
+  }
+}
+
+function edgesVisibleFor(style: RenderStyle) {
+  return style === "edges" || style === "xray";
+}
+
 type MeshPreviewProps = {
   preview: PreviewMeshResult | null;
   isLoading: boolean;
-  markers?: WarningMarker[];
   onNewQuote?: () => void;
 };
 
-const MARKER_COLOR = 0xf59e0b;
+type ViewController = {
+  camera: THREE.PerspectiveCamera;
+  controls: OrbitControls;
+  center: THREE.Vector3;
+  radius: number;
+};
 
-function makeWarningSprite(label: string) {
+type SceneRefs = {
+  mesh: THREE.Mesh;
+  edgeLines: THREE.LineSegments | null;
+};
+
+function makeFaceTexture(label: string) {
   const dimension = 128;
   const canvas = document.createElement("canvas");
   canvas.width = dimension;
   canvas.height = dimension;
   const ctx = canvas.getContext("2d");
   if (ctx) {
-    ctx.clearRect(0, 0, dimension, dimension);
-    ctx.beginPath();
-    ctx.arc(dimension / 2, dimension / 2, dimension * 0.4, 0, Math.PI * 2);
-    ctx.fillStyle = "#f59e0b";
-    ctx.fill();
-    ctx.lineWidth = dimension * 0.07;
-    ctx.strokeStyle = "#7c2d12";
-    ctx.stroke();
-    ctx.fillStyle = "#1f1300";
-    ctx.font = `bold ${dimension * 0.5}px "IBM Plex Sans", system-ui, sans-serif`;
+    ctx.fillStyle = "#f3f6f4";
+    ctx.fillRect(0, 0, dimension, dimension);
+    ctx.strokeStyle = "#c2ccc8";
+    ctx.lineWidth = 6;
+    ctx.strokeRect(3, 3, dimension - 6, dimension - 6);
+    ctx.fillStyle = "#273239";
+    ctx.font = 'bold 20px "IBM Plex Sans", system-ui, sans-serif';
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(label, dimension / 2, dimension / 2 + dimension * 0.02);
+    ctx.fillText(label.toUpperCase(), dimension / 2, dimension / 2);
   }
   const texture = new THREE.CanvasTexture(canvas);
   texture.anisotropy = 4;
-  const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, depthWrite: false, transparent: true });
-  const sprite = new THREE.Sprite(material);
-  sprite.renderOrder = 30;
-  return sprite;
+  return texture;
 }
 
-export function MeshPreview({ preview, isLoading, markers = [], onNewQuote }: MeshPreviewProps) {
+export function MeshPreview({ preview, isLoading, onNewQuote }: MeshPreviewProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
-  const [hover, setHover] = useState<HoverState | null>(null);
+  const cubeMountRef = useRef<HTMLDivElement | null>(null);
+  const viewRef = useRef<ViewController | null>(null);
+  const sceneRef = useRef<SceneRefs | null>(null);
+  const [renderStyle, setRenderStyle] = useState<RenderStyle>("edges");
+  const renderStyleRef = useRef(renderStyle);
+  renderStyleRef.current = renderStyle;
+
+  const applyRenderStyle = useCallback((style: RenderStyle) => {
+    const refs = sceneRef.current;
+    if (!refs) {
+      return;
+    }
+    const previous = refs.mesh.material as THREE.Material;
+    const next = makeMeshMaterial(style);
+    refs.mesh.material = next;
+    if (previous !== next) {
+      previous.dispose();
+    }
+    if (refs.edgeLines) {
+      refs.edgeLines.visible = edgesVisibleFor(style);
+    }
+  }, []);
+
+  const applyOrientation = useCallback((direction: THREE.Vector3, up: THREE.Vector3) => {
+    const controller = viewRef.current;
+    if (!controller) {
+      return;
+    }
+    const { camera, controls, center, radius } = controller;
+    const dir = direction.clone().normalize();
+    const distance = radius * 2.2;
+    camera.up.copy(up).normalize();
+    camera.position.copy(center).addScaledVector(dir, distance);
+    camera.updateProjectionMatrix();
+    controls.target.copy(center);
+    controls.update();
+  }, []);
+
+  const applyView = useCallback(
+    (view: View) => {
+      applyOrientation(new THREE.Vector3(...view.direction), new THREE.Vector3(...view.up));
+    },
+    [applyOrientation],
+  );
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -82,21 +182,23 @@ export function MeshPreview({ preview, isLoading, markers = [], onNewQuote }: Me
     geometry.setIndex(preview.indices);
     geometry.computeBoundingSphere();
 
-    const material = new THREE.MeshStandardMaterial({
-      color: 0x6f8a87,
-      metalness: 0.2,
-      roughness: 0.45,
-      side: THREE.DoubleSide,
-    });
-    const mesh = new THREE.Mesh(geometry, material);
+    const initialStyle = renderStyleRef.current;
+    const mesh = new THREE.Mesh(geometry, makeMeshMaterial(initialStyle));
     scene.add(mesh);
 
+    let edgeLines: THREE.LineSegments | null = null;
+    let edgeGeometry: THREE.BufferGeometry | null = null;
+    let edgeMaterial: THREE.LineBasicMaterial | null = null;
     if (preview.edges.length > 0) {
-      const edgeGeometry = new THREE.BufferGeometry();
+      edgeGeometry = new THREE.BufferGeometry();
       edgeGeometry.setAttribute("position", new THREE.Float32BufferAttribute(preview.edges, 3));
-      const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x273239, transparent: true, opacity: 0.22 });
-      scene.add(new THREE.LineSegments(edgeGeometry, edgeMaterial));
+      edgeMaterial = new THREE.LineBasicMaterial({ color: 0x273239, transparent: true, opacity: 0.22 });
+      edgeLines = new THREE.LineSegments(edgeGeometry, edgeMaterial);
+      edgeLines.visible = edgesVisibleFor(initialStyle);
+      scene.add(edgeLines);
     }
+
+    sceneRef.current = { mesh, edgeLines };
 
     const keyLight = new THREE.DirectionalLight(0xffffff, 2.1);
     keyLight.position.set(1.4, 2.4, 2.2);
@@ -117,88 +219,86 @@ export function MeshPreview({ preview, isLoading, markers = [], onNewQuote }: Me
     controls.target.copy(center);
     controls.update();
 
-    const diagonal = size.length();
-    const markerGroup = new THREE.Group();
-    const spriteScale = Math.max(diagonal * 0.05, 0.5);
-    for (const marker of markers) {
-      const origin = new THREE.Vector3(marker.position[0], marker.position[1], marker.position[2]);
+    viewRef.current = { camera, controls, center, radius };
 
-      if (marker.radius && marker.direction) {
-        const tube = Math.max(marker.radius * 0.09, diagonal * 0.0035);
-        const ringGeometry = new THREE.TorusGeometry(marker.radius, tube, 12, 48);
-        const ringMaterial = new THREE.MeshBasicMaterial({
-          color: MARKER_COLOR,
-          depthTest: false,
-          transparent: true,
-          opacity: 0.95,
-        });
-        const ring = new THREE.Mesh(ringGeometry, ringMaterial);
-        ring.renderOrder = 25;
-        ring.userData.marker = marker;
-        const direction = new THREE.Vector3(marker.direction[0], marker.direction[1], marker.direction[2]).normalize();
-        ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), direction);
-        ring.position.copy(origin);
-        markerGroup.add(ring);
-      } else {
-        const dotGeometry = new THREE.SphereGeometry(Math.max(diagonal * 0.012, 0.3), 16, 16);
-        const dotMaterial = new THREE.MeshBasicMaterial({ color: MARKER_COLOR, depthTest: false, transparent: true });
-        const dot = new THREE.Mesh(dotGeometry, dotMaterial);
-        dot.renderOrder = 25;
-        dot.userData.marker = marker;
-        dot.position.copy(origin);
-        markerGroup.add(dot);
-      }
+    // ---- Orientation view cube (top-right overlay) ----
+    const cubeMount = cubeMountRef.current;
+    let cubeRenderer: THREE.WebGLRenderer | null = null;
+    let cubeScene: THREE.Scene | null = null;
+    let cubeCamera: THREE.PerspectiveCamera | null = null;
+    let cube: THREE.Mesh | null = null;
+    const cubeFaceTextures: THREE.Texture[] = [];
+    const cubeRaycaster = new THREE.Raycaster();
+    const cubePointer = new THREE.Vector2();
 
-      const sprite = makeWarningSprite(String(marker.number));
-      sprite.position.copy(origin);
-      sprite.scale.set(spriteScale, spriteScale, spriteScale);
-      sprite.userData.marker = marker;
-      markerGroup.add(sprite);
-    }
-    scene.add(markerGroup);
-
-    const raycaster = new THREE.Raycaster();
-    const pointer = new THREE.Vector2();
-
-    const findMarker = (object: THREE.Object3D | null): WarningMarker | null => {
-      let current: THREE.Object3D | null = object;
-      while (current) {
-        const candidate = current.userData?.marker as WarningMarker | undefined;
-        if (candidate) {
-          return candidate;
-        }
-        current = current.parent;
-      }
-      return null;
-    };
-
-    const handlePointerMove = (event: PointerEvent) => {
-      if (markers.length === 0) {
+    const handleCubeClick = (event: MouseEvent) => {
+      if (!cubeRenderer || !cubeCamera || !cube) {
         return;
       }
-      const rect = renderer.domElement.getBoundingClientRect();
-      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(pointer, camera);
-      const intersections = raycaster.intersectObjects(markerGroup.children, true);
-      const marker = intersections.length > 0 ? findMarker(intersections[0].object) : null;
-      renderer.domElement.style.cursor = marker ? "pointer" : "";
-      setHover(marker ? { marker, x: event.clientX - rect.left, y: event.clientY - rect.top } : null);
+      const rect = cubeRenderer.domElement.getBoundingClientRect();
+      cubePointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      cubePointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      cubeRaycaster.setFromCamera(cubePointer, cubeCamera);
+      const hit = cubeRaycaster.intersectObject(cube)[0];
+      if (!hit) {
+        return;
+      }
+
+      // Where on the 1x1x1 cube the click landed (faces sit at ±0.5).
+      // Near an edge/corner a second/third axis crosses the threshold, so we
+      // roll toward the adjacent face(s) for a combined angled view.
+      const local = cube.worldToLocal(hit.point.clone());
+      const edgeZone = 0.35;
+      const direction = new THREE.Vector3(
+        Math.abs(local.x) > edgeZone ? Math.sign(local.x) : 0,
+        Math.abs(local.y) > edgeZone ? Math.sign(local.y) : 0,
+        Math.abs(local.z) > edgeZone ? Math.sign(local.z) : 0,
+      );
+      if (direction.lengthSq() === 0) {
+        return;
+      }
+
+      const isVertical = direction.x === 0 && direction.z === 0;
+      const up = isVertical ? new THREE.Vector3(0, 0, -Math.sign(direction.y)) : new THREE.Vector3(0, 1, 0);
+      applyOrientation(direction, up);
     };
 
-    const handlePointerLeave = () => {
-      renderer.domElement.style.cursor = "";
-      setHover(null);
-    };
+    if (cubeMount) {
+      const cubeSize = cubeMount.clientWidth || 88;
+      cubeRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      cubeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      cubeRenderer.setSize(cubeSize, cubeSize);
+      cubeMount.appendChild(cubeRenderer.domElement);
 
-    renderer.domElement.addEventListener("pointermove", handlePointerMove);
-    renderer.domElement.addEventListener("pointerleave", handlePointerLeave);
+      cubeScene = new THREE.Scene();
+      cubeCamera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+
+      const cubeMaterials = CUBE_FACE_VIEWS.map((id) => {
+        const texture = makeFaceTexture(VIEW_BY_ID.get(id)!.label);
+        cubeFaceTextures.push(texture);
+        return new THREE.MeshBasicMaterial({ map: texture });
+      });
+      cube = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), cubeMaterials);
+      cubeScene.add(cube);
+
+      cubeRenderer.domElement.addEventListener("click", handleCubeClick);
+    }
+
+    const cubeOffset = new THREE.Vector3();
 
     let frame = 0;
     const animate = () => {
       frame = requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
+
+      if (cubeRenderer && cubeScene && cubeCamera) {
+        cubeOffset.subVectors(camera.position, controls.target).normalize().multiplyScalar(2.6);
+        cubeCamera.position.copy(cubeOffset);
+        cubeCamera.up.copy(camera.up);
+        cubeCamera.lookAt(0, 0, 0);
+        cubeRenderer.render(cubeScene, cubeCamera);
+      }
     };
     animate();
 
@@ -215,36 +315,38 @@ export function MeshPreview({ preview, isLoading, markers = [], onNewQuote }: Me
     return () => {
       cancelAnimationFrame(frame);
       resizeObserver.disconnect();
-      renderer.domElement.removeEventListener("pointermove", handlePointerMove);
-      renderer.domElement.removeEventListener("pointerleave", handlePointerLeave);
-      setHover(null);
       controls.dispose();
       geometry.dispose();
-      material.dispose();
-      markerGroup.traverse((object) => {
-        const mesh = object as THREE.Mesh;
-        mesh.geometry?.dispose();
-        const objectMaterial = (object as THREE.Mesh | THREE.Sprite).material as THREE.Material | undefined;
-        if (objectMaterial) {
-          const map = (objectMaterial as THREE.SpriteMaterial).map;
-          map?.dispose();
-          objectMaterial.dispose();
-        }
-      });
+      (mesh.material as THREE.Material).dispose();
+      edgeGeometry?.dispose();
+      edgeMaterial?.dispose();
       renderer.dispose();
       mount.removeChild(renderer.domElement);
+      viewRef.current = null;
+      sceneRef.current = null;
+
+      if (cubeRenderer) {
+        cubeRenderer.domElement.removeEventListener("click", handleCubeClick);
+        cube?.geometry.dispose();
+        cubeFaceTextures.forEach((texture) => texture.dispose());
+        (cube?.material as THREE.Material[] | undefined)?.forEach((mat) => mat.dispose());
+        cubeRenderer.dispose();
+        cubeMount?.removeChild(cubeRenderer.domElement);
+      }
     };
-  }, [preview, markers]);
+  }, [preview, applyOrientation]);
+
+  useEffect(() => {
+    applyRenderStyle(renderStyle);
+  }, [renderStyle, applyRenderStyle, preview]);
 
   return (
     <section className="preview-panel" aria-label="STEP preview">
       <div className="preview-toolbar">
         <div>
-          <h2>STEP Preview</h2>
-          <span>{preview ? `${preview.triangle_count.toLocaleString()} triangles` : "Waiting for upload"}</span>
+          <h2>Preview</h2>
         </div>
         <div className="preview-toolbar-actions">
-          {preview && <span className="unit-pill">{preview.units}</span>}
           {onNewQuote && (
             <button type="button" className="preview-action" onClick={onNewQuote}>
               <RotateCcw size={14} />
@@ -254,6 +356,26 @@ export function MeshPreview({ preview, isLoading, markers = [], onNewQuote }: Me
         </div>
       </div>
       <div className="viewport" ref={mountRef}>
+        <div
+          className="view-cube"
+          ref={cubeMountRef}
+          aria-label="Orientation cube — click a face to change view"
+          style={{ display: preview ? "block" : "none" }}
+        />
+        {preview && (
+          <div className="render-styles" role="group" aria-label="Render style">
+            {RENDER_STYLES.map((style) => (
+              <button
+                key={style.id}
+                type="button"
+                className={renderStyle === style.id ? "active" : ""}
+                onClick={() => setRenderStyle(style.id)}
+              >
+                {style.label}
+              </button>
+            ))}
+          </div>
+        )}
         {!preview && isLoading && (
           <div className="viewport-empty viewport-empty-loading">
             <LoadingSteps title="Generating preview" steps={PREVIEW_STEPS} />
@@ -263,27 +385,6 @@ export function MeshPreview({ preview, isLoading, markers = [], onNewQuote }: Me
           <div className="viewport-empty">
             <strong>No CAD loaded</strong>
             <span>Upload a STEP or STP file to render the preview.</span>
-          </div>
-        )}
-        {preview && markers.length > 0 && (
-          <div className="warning-hint" aria-label="Geometry warnings on model">
-            <span className="warning-pin warning-pin-sm">!</span>
-            <span>
-              {markers.length} geometry {markers.length === 1 ? "warning" : "warnings"} · hover a marker
-            </span>
-          </div>
-        )}
-        {hover && (
-          <div className="warning-tooltip" style={{ left: hover.x, top: hover.y }} role="tooltip">
-            <span className="warning-tooltip-head">
-              <span className="warning-pin warning-pin-sm">{hover.marker.number}</span>
-              {hover.marker.faceId}
-            </span>
-            <ul>
-              {hover.marker.warnings.map((warning) => (
-                <li key={warning}>{warning.replace(/_/g, " ")}</li>
-              ))}
-            </ul>
           </div>
         )}
       </div>

@@ -111,7 +111,6 @@ class StepReader:
 
         topology = count_topology(shape)
         shape_kind = classify_shape(topology)
-        warnings = self._warnings(shape_kind, topology)
 
         if self.settings.cad_strict_solid and topology.solids < 1:
             raise StepUnsupportedShapeError(
@@ -122,18 +121,7 @@ class StepReader:
             )
 
         validity = check_shape_validity(shape)
-        if not validity.is_valid:
-            warnings.append("shape_invalid")
-
         mass_properties = compute_mass_properties(shape)
-        if mass_properties.volume <= 0:
-            warnings.append("zero_or_negative_volume")
-        if topology.solids > 1:
-            warnings.append("multi_solid_output")
-        if not source_length_units:
-            warnings.append("source_length_units_not_reported")
-        elif len(set(source_length_units)) > 1:
-            warnings.append("multiple_source_length_units")
 
         canonical_unit = str(modules["Interface_Static"].CVal("xstep.cascade.unit"))
         diagnostics = StepImportDiagnostics(
@@ -149,7 +137,6 @@ class StepReader:
             shape_count=shape_count,
             shape_kind=shape_kind,
             strict_solid=self.settings.cad_strict_solid,
-            warnings=sorted(set(warnings)),
         )
 
         parse_result = StepParseResult(
@@ -203,11 +190,3 @@ class StepReader:
             _sequence_to_list(angle_units),
             _sequence_to_list(solid_angle_units),
         )
-
-    def _warnings(self, shape_kind: str, topology: Any) -> list[str]:
-        warnings: list[str] = []
-        if shape_kind != "single_solid":
-            warnings.append(f"shape_kind_{shape_kind}")
-        if topology.faces == 0:
-            warnings.append("no_faces")
-        return warnings

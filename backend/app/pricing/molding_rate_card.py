@@ -41,27 +41,23 @@ class MoldingClassRate(BaseModel):
     base_tooling_usd: float = Field(ge=0)
     tooling_multiplier: float = Field(gt=0)
     max_shots: int | None = Field(default=None, gt=0)
-    warnings: list[str] = Field(default_factory=list)
 
 
 class MoldingFinishRate(BaseModel):
     label: str
     tooling_add_usd: float = Field(ge=0)
     production_multiplier: float = Field(gt=0)
-    warnings: list[str] = Field(default_factory=list)
 
 
 class MoldingLeadTimeRate(BaseModel):
     label: str
     multiplier: float = Field(gt=0)
-    warnings: list[str] = Field(default_factory=list)
 
 
 class MoldingAnnualVolumeTier(BaseModel):
     min_annual_volume: int = Field(gt=0)
     max_annual_volume: int | None = Field(default=None, gt=0)
     production_multiplier: float = Field(gt=0)
-    warnings: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_range(self) -> "MoldingAnnualVolumeTier":

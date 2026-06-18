@@ -68,7 +68,6 @@ def _print_text_report(report: dict[str, Any], analyses: list[dict[str, Any]]) -
         print(f"  Surface area: {analysis['mass_properties']['surface_area']}")
         print(f"  Tolerance summary: {analysis['tolerance_summary']}")
         print(f"  Topology: {analysis['topology']}")
-        print(f"  Warnings: {analysis['diagnostics']['warnings']}")
 
 
 def main(argv: list[str] | None = None) -> int:

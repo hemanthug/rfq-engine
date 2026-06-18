@@ -70,7 +70,6 @@ class RejectedFeatureCandidate(BaseModel):
 
 class FeatureDiagnostics(BaseModel):
     detector_versions: dict[str, str]
-    warnings: list[str]
     deferred_feature_types: list[str]
     rejected_candidates: list[RejectedFeatureCandidate] = Field(default_factory=list)
 

@@ -5,7 +5,6 @@ import { LoadingSteps } from "./components/LoadingSteps";
 import { MeshPreview } from "./components/MeshPreview";
 import type {
   CadPreviewWorkflowResult,
-  FaceAnalysis,
   ManufacturingProcess,
   MoldingFormValues,
   MoldingQuoteWorkflowResult,
@@ -14,7 +13,6 @@ import type {
   SheetMetalFormValues,
   SheetMetalQuoteWorkflowResult,
   StepParseResult,
-  WarningMarker,
 } from "./types";
 
 const DEFAULT_CNC_VALUES: QuoteFormValues = {
@@ -117,11 +115,6 @@ export function App() {
   const canQuote = file !== null && isImplementedProcess(process) && previewResult !== null && !isPreviewLoading;
   const activeComplexity = activeResult?.quote.source.complexity.score;
   const processFit = previewResult?.process_fit ?? null;
-
-  const { markers: warningMarkers, badges: warningBadges } = useMemo(
-    () => buildWarningMarkers(activeResult?.quote.source.faces ?? [], activeResult?.workflow.warnings ?? []),
-    [activeResult],
-  );
 
   const runQuote = useCallback(async () => {
     if (!file || !isImplementedProcess(process)) {
@@ -253,10 +246,6 @@ export function App() {
           <h1>RFQ Generator</h1>
           <p>Instant budgetary quoting from real STEP geometry</p>
         </div>
-        <div className="status-strip">
-          <span>STEP geometry kernel</span>
-          <span>Live preview mesh</span>
-        </div>
       </header>
 
       <div className={file ? "workspace" : "workspace workspace-empty"}>
@@ -265,7 +254,6 @@ export function App() {
             <MeshPreview
               preview={preview}
               isLoading={isPreviewLoading}
-              markers={warningMarkers}
               onNewQuote={startNewQuote}
             />
             <aside className="price-rail" aria-label="Quote summary">
@@ -303,28 +291,56 @@ export function App() {
         )}
 
         {file && (
-          <section className="summary-panel">
-            <h2>CAD Facts</h2>
-            <Metric label="Dimensions" value={dimensions} />
-            <Metric
-              label="Source units"
-              value={
-                cadFacts
-                  ? `${cadFacts.diagnostics.source_length_units.join(", ")} -> ${cadFacts.diagnostics.canonical_unit}`
-                  : "Pending"
-              }
-            />
-            <Metric label="Volume" value={cadFacts ? `${cadFacts.mass_properties.volume.toFixed(1)} mm3` : "Pending"} />
-            <Metric
-              label="Surface area"
-              value={cadFacts ? `${cadFacts.mass_properties.surface_area.toFixed(1)} mm2` : "Pending"}
-            />
-            <Metric
-              label="Faces / edges"
-              value={cadFacts ? `${cadFacts.topology.faces} / ${cadFacts.topology.edges}` : "Pending"}
-            />
-            <Metric label="Complexity" value={activeComplexity !== undefined ? String(activeComplexity) : "Pending"} />
-          </section>
+          <>
+            <details className="messages-disclosure" open>
+              <summary>
+                <div className="disclosure-intro">
+                  <span className="disclosure-label">Model properties</span>
+                </div>
+              </summary>
+              <div className="disclosure-body metric-list">
+                <Metric label="Dimensions" value={dimensions} />
+                <Metric
+                  label="Source units"
+                  value={
+                    cadFacts
+                      ? `${cadFacts.diagnostics.source_length_units.join(", ")} -> ${cadFacts.diagnostics.canonical_unit}`
+                      : "Pending"
+                  }
+                />
+                <Metric label="Volume" value={cadFacts ? `${cadFacts.mass_properties.volume.toFixed(1)} mm3` : "Pending"} />
+                <Metric
+                  label="Surface area"
+                  value={cadFacts ? `${cadFacts.mass_properties.surface_area.toFixed(1)} mm2` : "Pending"}
+                />
+                <Metric
+                  label="Faces / edges"
+                  value={cadFacts ? `${cadFacts.topology.faces} / ${cadFacts.topology.edges}` : "Pending"}
+                />
+                <Metric label="Complexity" value={activeComplexity !== undefined ? String(activeComplexity) : "Pending"} />
+              </div>
+            </details>
+            {activeResult && (
+              <details className="messages-disclosure">
+                <summary>
+                  <div className="disclosure-intro">
+                    <span className="disclosure-label">Assumptions</span>
+                    <span className="disclosure-note">Will be calibrated to your operations</span>
+                  </div>
+                  <span className="disclosure-counts">
+                    {activeResult.quote.assumptions.length} assumptions
+                  </span>
+                </summary>
+                <div className="disclosure-body">
+                  <ul className="disclosure-list">
+                    {activeResult.quote.assumptions.map((item) => (
+                      <li key={item}>{item.replace(/_/g, " ")}</li>
+                    ))}
+                  </ul>
+                </div>
+              </details>
+            )}
+          </>
         )}
         </div>
 
@@ -370,20 +386,6 @@ export function App() {
               <CheckCircle2 size={18} />
               <span>Preview generated in {previewResult.workflow.elapsed_ms.toFixed(0)} ms for {previewResult.upload.filename}.</span>
             </div>
-          )}
-          {activeResult && (
-            <details className="messages-disclosure">
-              <summary>
-                <span className="disclosure-label">Warnings &amp; Assumptions</span>
-                <span className="disclosure-counts">
-                  {activeResult.workflow.warnings.length} warnings · {activeResult.quote.assumptions.length} assumptions
-                </span>
-              </summary>
-              <section className="messages">
-                <MessageList title="Warnings" items={activeResult.workflow.warnings} badges={warningBadges} />
-                <MessageList title="Assumptions" items={activeResult.quote.assumptions} />
-              </section>
-            </details>
           )}
         </section>
         )}
@@ -773,92 +775,11 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function MessageList({ title, items, badges }: { title: string; items: string[]; badges?: Map<string, number[]> }) {
-  return (
-    <section>
-      <h2>{title}</h2>
-      <ul>
-        {items.map((item) => {
-          const markerNumbers = badges?.get(item);
-          return (
-            <li key={item} className={markerNumbers?.length ? "message-pinned" : undefined}>
-              {markerNumbers && markerNumbers.length > 0 && (
-                <span className="warning-badges">
-                  {markerNumbers.map((number) => (
-                    <span key={number} className="warning-pin warning-pin-sm">
-                      {number}
-                    </span>
-                  ))}
-                </span>
-              )}
-              {item.replace(/_/g, " ")}
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
-const FACE_ID_PATTERN = /face_\d{4}/g;
-
-function buildWarningMarkers(
-  faces: FaceAnalysis[],
-  warnings: string[],
-): { markers: WarningMarker[]; badges: Map<string, number[]> } {
-  const faceById = new Map(faces.map((face) => [face.face_id, face]));
-  const markersByFace = new Map<string, WarningMarker>();
-  const badges = new Map<string, number[]>();
-  let nextNumber = 1;
-
-  for (const warning of warnings) {
-    const referencedFaceIds = Array.from(new Set(warning.match(FACE_ID_PATTERN) ?? []));
-    const numbersForWarning: number[] = [];
-
-    for (const faceId of referencedFaceIds) {
-      const face = faceById.get(faceId);
-      if (!face || !face.axis_origin) {
-        continue;
-      }
-
-      let marker = markersByFace.get(faceId);
-      if (!marker) {
-        marker = {
-          number: nextNumber++,
-          faceId,
-          position: [face.axis_origin[0], face.axis_origin[1], face.axis_origin[2]],
-          direction: face.axis_direction
-            ? [face.axis_direction[0], face.axis_direction[1], face.axis_direction[2]]
-            : null,
-          radius: face.radius,
-          warnings: [],
-        };
-        markersByFace.set(faceId, marker);
-      }
-      marker.warnings.push(warning);
-      numbersForWarning.push(marker.number);
-    }
-
-    if (numbersForWarning.length > 0) {
-      badges.set(warning, Array.from(new Set(numbersForWarning)));
-    }
-  }
-
-  const markers = Array.from(markersByFace.values()).sort((a, b) => a.number - b.number);
-  return { markers, badges };
-}
-
 function formatDimensions(cadFacts: StepParseResult | undefined) {
   if (!cadFacts) {
     return "No dimensions yet";
   }
-  const mm = cadFacts.bounding_box.size.map((value) => `${value.toFixed(1)} mm`).join(" x ");
-  const sourceUnits = cadFacts.diagnostics.source_length_units.map((unit) => unit.toUpperCase());
-  if (sourceUnits.includes("INCH")) {
-    const inches = cadFacts.bounding_box.size.map((value) => `${(value / 25.4).toFixed(3)} in`).join(" x ");
-    return `${mm} (${inches})`;
-  }
-  return mm;
+  return `${cadFacts.bounding_box.size.map((value) => value.toFixed(1)).join(" × ")} mm`;
 }
 
 function processLabel(process: ManufacturingProcess) {

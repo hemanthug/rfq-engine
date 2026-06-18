@@ -52,11 +52,10 @@ def _axis_key(face: FaceAnalysis) -> tuple[float, ...]:
 def recognize_holes(
     faces: list[FaceAnalysis],
     edges: list[EdgeAnalysis],
-) -> tuple[list[HoleFeature], list[str], list[RejectedFeatureCandidate]]:
+) -> tuple[list[HoleFeature], list[RejectedFeatureCandidate]]:
     face_by_id = _face_lookup(faces)
     edge_by_id = _edge_lookup(edges)
     holes: list[HoleFeature] = []
-    warnings: list[str] = []
     rejected: list[RejectedFeatureCandidate] = []
     cylinder_faces = [face for face in faces if face.surface_type == "cylinder" and face.radius]
     grouped: dict[tuple[float, ...], list[FaceAnalysis]] = {}
@@ -118,10 +117,8 @@ def recognize_holes(
         ]
 
         if len(circular_edges) < 2:
-            warnings.append(f"cylindrical_face_{primary.face_id}_has_insufficient_circular_boundaries")
             continue
         if not inner_loop_planar_faces:
-            warnings.append(f"cylindrical_face_{primary.face_id}_lacks_inner_loop_planar_boundary")
             continue
         if len(inner_loop_planar_faces) >= 2 and len(non_cap_planar_side_faces) >= 2:
             rejected.append(
@@ -167,7 +164,6 @@ def recognize_holes(
 
         hole_type = "blind" if len(planar_cap_faces) == 1 else "through"
         if hole_type == "through" and len(inner_loop_planar_faces) < 2:
-            warnings.append(f"cylindrical_face_{primary.face_id}_has_ambiguous_through_hole_boundaries")
             continue
         depth = None
         if primary.radius and primary.area > 0:
@@ -196,7 +192,7 @@ def recognize_holes(
             )
         )
 
-    return holes, warnings, rejected
+    return holes, rejected
 
 
 def _axis_span(faces: list[FaceAnalysis]) -> float:
@@ -229,11 +225,10 @@ def _is_exterior_body_cylinder(group: list[FaceAnalysis], diameter: float, bbox_
     return total_area >= 100.0
 
 
-def recognize_pockets(faces: list[FaceAnalysis], adjacency: list[FaceAdjacency]) -> tuple[list[PocketFeature], list[str]]:
+def recognize_pockets(faces: list[FaceAnalysis], adjacency: list[FaceAdjacency]) -> list[PocketFeature]:
     face_by_id = _face_lookup(faces)
     max_plane_area = max((face.area for face in faces if face.surface_type == "plane"), default=0.0)
     neighbor_ids_by_face: dict[str, set[str]] = {face.face_id: set() for face in faces}
-    warnings: list[str] = []
 
     for relation in adjacency:
         if len(relation.face_ids) == 2:
@@ -280,10 +275,7 @@ def recognize_pockets(faces: list[FaceAnalysis], adjacency: list[FaceAdjacency])
             )
         )
 
-    if len(pockets) > 1:
-        warnings.append("multiple_planar_pocket_candidates_detected")
     if len(pockets) > 4:
-        warnings.append("planar_pocket_candidates_suppressed_for_complex_pattern")
-        return [], warnings
+        return []
 
-    return pockets, warnings
+    return pockets

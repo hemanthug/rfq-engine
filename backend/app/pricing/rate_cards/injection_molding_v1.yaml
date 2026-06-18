@@ -47,67 +47,48 @@ mold_classes:
     base_tooling_usd: 8000.0
     tooling_multiplier: 0.65
     max_shots: 10000
-    warnings:
-      - prototype_tooling_limited_life
   bridge:
     label: Bridge tooling
     base_tooling_usd: 18000.0
     tooling_multiplier: 0.85
     max_shots: 50000
-    warnings: []
   production:
     label: Production hardened tooling
     base_tooling_usd: 35000.0
     tooling_multiplier: 1.0
     max_shots: 500000
-    warnings: []
   high_volume:
     label: High-volume production tooling
     base_tooling_usd: 65000.0
     tooling_multiplier: 1.35
     max_shots: null
-    warnings:
-      - high_volume_tooling_requires_engineering_review
 finishes:
   standard_spi_b3:
     label: Standard SPI-B3
     tooling_add_usd: 0.0
     production_multiplier: 1.0
-    warnings: []
   matte_texture:
     label: Matte texture
     tooling_add_usd: 2500.0
     production_multiplier: 1.03
-    warnings:
-      - texture_requires_draft_review
   polished:
     label: Polished
     tooling_add_usd: 4500.0
     production_multiplier: 1.08
-    warnings:
-      - polish_requires_tooling_review
 lead_time_classes:
   standard:
     label: Standard
     multiplier: 1.0
-    warnings: []
   expedited:
     label: Expedited
     multiplier: 1.25
-    warnings:
-      - expedited_tooling_subject_to_capacity
 annual_volume_tiers:
   - min_annual_volume: 1
     max_annual_volume: 9999
     production_multiplier: 1.15
-    warnings:
-      - low_annual_volume_molding_economics_should_be_reviewed
   - min_annual_volume: 10000
     max_annual_volume: 99999
     production_multiplier: 1.0
-    warnings: []
   - min_annual_volume: 100000
     max_annual_volume: null
     production_multiplier: 0.9
-    warnings:
-      - high_volume_quote_should_be_supplier_validated

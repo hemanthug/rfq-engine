@@ -59,7 +59,6 @@ def main(argv: list[str] | None = None) -> int:
     print("  Line items:")
     for item in result.line_items:
         print(f"    - {item.code}: {result.currency} {item.amount:.2f} ({item.basis})")
-    print(f"  Warnings: {result.warnings}")
     print(f"  Assumptions: {result.assumptions}")
     return 0
 

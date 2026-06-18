@@ -27,6 +27,8 @@
   --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-body: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
 
+  --chevron-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+
   color: var(--ink);
   background: var(--paper);
   font-family: var(--font-body);
@@ -62,7 +64,6 @@ textarea {
 .line-item strong,
 .quote-total span,
 .quote-total small,
-.unit-pill,
 .file-meta,
 input[type="number"] {
   font-variant-numeric: tabular-nums;
@@ -143,7 +144,7 @@ input[type="number"] {
   align-items: start;
   display: grid;
   gap: clamp(16px, 2vw, 28px);
-  grid-template-columns: minmax(400px, 580px) minmax(0, 1fr);
+  grid-template-columns: minmax(300px, 440px) minmax(0, 1fr);
   margin: 0 auto;
   max-width: 1440px;
 }
@@ -412,7 +413,7 @@ textarea {
 }
 
 .preview-stage .preview-panel {
-  grid-template-rows: auto minmax(440px, 56vh);
+  grid-template-rows: auto minmax(440px, 1fr);
 }
 
 /* ---------- Price rail (lives beside the canvas, matches its height) ---------- */
@@ -567,16 +568,52 @@ textarea {
   font-size: 12px;
 }
 
-.unit-pill {
-  background: var(--surface-sunk);
+.view-cube {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 88px;
+  height: 88px;
+  z-index: 6;
+  cursor: pointer;
+}
+
+.render-styles {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  z-index: 6;
+  background: oklch(99% 0.004 170 / 0.92);
   border: 1px solid var(--line-strong);
   border-radius: 999px;
+  box-shadow: var(--shadow);
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+}
+
+.render-styles button {
+  background: transparent;
+  border: none;
+  border-radius: 999px;
   color: var(--ink-soft);
+  cursor: pointer;
+  font-family: var(--font-display);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  padding: 4px 10px;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 5px 11px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.render-styles button:hover {
+  color: var(--accent-strong);
+}
+
+.render-styles button.active {
+  background: var(--accent);
+  color: #fff;
 }
 
 .viewport {
@@ -619,111 +656,6 @@ textarea {
 .viewport-empty span {
   font-size: 13px;
   max-width: 30ch;
-}
-
-.warning-hint {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 6;
-  max-width: calc(100% - 24px);
-  align-items: center;
-  color: var(--ink-soft);
-  display: flex;
-  font-size: 12px;
-  gap: 8px;
-  padding: 7px 11px 7px 8px;
-  background: oklch(99% 0.004 170 / 0.92);
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(6px);
-  pointer-events: none;
-  white-space: nowrap;
-}
-
-.warning-tooltip {
-  position: absolute;
-  z-index: 5;
-  max-width: 280px;
-  padding: 10px 12px;
-  background: oklch(21% 0.018 200 / 0.96);
-  border: 1px solid oklch(40% 0.02 200);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow);
-  color: oklch(96% 0.01 200);
-  pointer-events: none;
-  transform: translate(14px, 14px);
-}
-
-.warning-tooltip-head {
-  align-items: center;
-  display: flex;
-  font-family: var(--font-display);
-  font-size: 12px;
-  font-weight: 600;
-  gap: 8px;
-  letter-spacing: 0.02em;
-}
-
-.warning-tooltip ul {
-  display: grid;
-  gap: 4px;
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 0;
-}
-
-.warning-tooltip li {
-  font-size: 12px;
-  line-height: 1.45;
-  padding-left: 12px;
-  position: relative;
-}
-
-.warning-tooltip li::before {
-  content: "—";
-  left: 0;
-  opacity: 0.7;
-  position: absolute;
-}
-
-.warning-pin {
-  align-items: center;
-  background: #f59e0b;
-  border: 1px solid #7c2d12;
-  border-radius: 999px;
-  color: #1f1300;
-  display: inline-flex;
-  flex: none;
-  font-size: 12px;
-  font-weight: 700;
-  height: 20px;
-  justify-content: center;
-  line-height: 1;
-  min-width: 20px;
-  padding: 0 5px;
-}
-
-.warning-pin-sm {
-  font-size: 11px;
-  height: 18px;
-  min-width: 18px;
-}
-
-.warning-badges {
-  display: inline-flex;
-  gap: 4px;
-  margin-right: 8px;
-  vertical-align: middle;
-}
-
-.messages li.message-pinned {
-  padding-left: 0;
-}
-
-.messages li.message-pinned::before {
-  content: none;
 }
 
 /* ---------- Detail grid ---------- */
@@ -861,7 +793,7 @@ textarea {
   gap: 12px;
   justify-content: space-between;
   list-style: none;
-  padding: clamp(14px, 1.4vw, 18px) clamp(18px, 1.6vw, 24px);
+  padding: 10px clamp(16px, 1.4vw, 20px);
   user-select: none;
 }
 
@@ -870,22 +802,42 @@ textarea {
 }
 
 .messages-disclosure > summary::after {
-  color: var(--ink-faint);
-  content: "▾";
-  font-size: 12px;
+  background-color: var(--ink-faint);
+  content: "";
+  flex: none;
+  height: 18px;
   margin-left: auto;
-  transition: transform 0.15s ease;
+  width: 18px;
+  -webkit-mask: var(--chevron-down) center / 16px 16px no-repeat;
+  mask: var(--chevron-down) center / 16px 16px no-repeat;
+  transition: transform 0.2s ease, background-color 0.15s ease;
+}
+
+.messages-disclosure > summary:hover::after {
+  background-color: var(--accent-strong);
 }
 
 .messages-disclosure[open] > summary::after {
   transform: rotate(180deg);
 }
 
+.disclosure-intro {
+  align-items: baseline;
+  column-gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+}
+
 .disclosure-label {
   color: var(--ink);
   font-family: var(--font-display);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
+}
+
+.disclosure-note {
+  color: var(--ink-faint);
+  font-size: 11px;
 }
 
 .disclosure-counts {
@@ -896,6 +848,39 @@ textarea {
 
 .messages-disclosure > summary:hover .disclosure-label {
   color: var(--accent-strong);
+}
+
+.disclosure-body {
+  border-top: 1px solid var(--line);
+  padding: 4px clamp(16px, 1.4vw, 20px) 10px;
+}
+
+.disclosure-body.metric-list {
+  padding-top: 2px;
+  padding-bottom: 6px;
+}
+
+.disclosure-list {
+  color: var(--ink-soft);
+  display: grid;
+  font-size: 13px;
+  gap: 6px;
+  line-height: 1.55;
+  list-style: none;
+  margin: 0;
+  padding: 8px 0 2px;
+}
+
+.disclosure-list li {
+  padding-left: 18px;
+  position: relative;
+}
+
+.disclosure-list li::before {
+  color: var(--accent);
+  content: "—";
+  left: 0;
+  position: absolute;
 }
 
 .messages {
@@ -911,6 +896,7 @@ textarea {
   border-radius: 0;
   border-top: 1px solid var(--line);
   box-shadow: none;
+  grid-template-columns: 1fr;
   padding-top: clamp(16px, 1.4vw, 20px);
 }
 
@@ -952,6 +938,19 @@ textarea {
   .messages,
   .preview-stage {
     grid-template-columns: 1fr;
+  }
+
+  /* Mobile stacking order: CAD facts, then 3D preview + price, then parameters */
+  .workspace > .left-rail {
+    order: 1;
+  }
+
+  .workspace > .preview-stage {
+    order: 2;
+  }
+
+  .workspace > .main-panel {
+    order: 3;
   }
 
   .topbar {

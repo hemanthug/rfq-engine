@@ -23,16 +23,11 @@ class ProcessFitRecommender:
         else:
             ranked = [cnc, sheet_metal]
         recommended = ranked[0]
-        warnings = [
-            "process_recommendation_is_budgetary",
-            "manufacturing_method_requires_engineering_review",
-        ]
         return ProcessFitResult(
             recommended_process=recommended.process,
             ranked_processes=ranked,
             confidence=recommended.confidence,
             reasons=recommended.reasons[:3],
-            warnings=warnings,
             signals=signals,
         )
 
@@ -41,14 +36,11 @@ class ProcessFitRecommender:
         if self._is_sheet_metal_candidate(signals):
             score = 55.0
         reasons = ["CNC is the default quote path unless geometry is confidently sheet-metal-like."]
-        return self._process("cnc", score, reasons, [])
+        return self._process("cnc", score, reasons)
 
     def _sheet_metal(self, signals: dict[str, float]) -> RankedProcessRecommendation:
         reasons = ["Thin shell geometry resembles a sheet-metal candidate."]
-        warnings = []
-        if signals["bend_candidate_count"] == 0:
-            warnings.append("no_bends_detected_flat_sheet_candidate")
-        return self._process("sheet_metal", signals["sheet_metal_confidence_score"], reasons, warnings)
+        return self._process("sheet_metal", signals["sheet_metal_confidence_score"], reasons)
 
     def _is_sheet_metal_candidate(self, signals: dict[str, float]) -> bool:
         has_bends = signals["bend_candidate_count"] > 0
@@ -64,7 +56,6 @@ class ProcessFitRecommender:
         process: str,
         score: float,
         reasons: list[str],
-        warnings: list[str],
     ) -> RankedProcessRecommendation:
         clamped = round(max(0.0, min(100.0, score)), 1)
         if clamped >= 75.0:
@@ -79,7 +70,6 @@ class ProcessFitRecommender:
             score=clamped,
             confidence=confidence,
             reasons=reasons,
-            warnings=warnings,
         )
 
 

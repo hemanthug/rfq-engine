@@ -71,7 +71,6 @@ class QuoteWorkflowService:
             ),
             workflow=CadPreviewWorkflowMetadata(
                 schema_version="1.0",
-                warnings=sorted(set([*context.parse_result.diagnostics.warnings, *preview.mesh_quality.warnings])),
                 elapsed_ms=round(elapsed_ms, 2),
             ),
         )
@@ -100,7 +99,6 @@ class QuoteWorkflowService:
             ),
             workflow=QuoteWorkflowMetadata(
                 schema_version="1.0",
-                warnings=sorted(set([*quote.warnings, *preview.mesh_quality.warnings])),
                 elapsed_ms=round(elapsed_ms, 2),
             ),
         )
@@ -133,7 +131,6 @@ class QuoteWorkflowService:
             ),
             workflow=QuoteWorkflowMetadata(
                 schema_version="1.0",
-                warnings=sorted(set([*quote.warnings, *preview.mesh_quality.warnings])),
                 elapsed_ms=round(elapsed_ms, 2),
             ),
         )
@@ -166,7 +163,6 @@ class QuoteWorkflowService:
             ),
             workflow=QuoteWorkflowMetadata(
                 schema_version="1.0",
-                warnings=sorted(set([*quote.warnings, *preview.mesh_quality.warnings])),
                 elapsed_ms=round(elapsed_ms, 2),
             ),
         )

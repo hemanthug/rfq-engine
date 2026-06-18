@@ -11,7 +11,6 @@ class RankedProcessRecommendation(BaseModel):
     score: float
     confidence: str
     reasons: list[str]
-    warnings: list[str]
 
 
 class ProcessFitResult(BaseModel):
@@ -19,7 +18,6 @@ class ProcessFitResult(BaseModel):
     ranked_processes: list[RankedProcessRecommendation]
     confidence: str
     reasons: list[str]
-    warnings: list[str]
     signals: dict[str, float]
 
 

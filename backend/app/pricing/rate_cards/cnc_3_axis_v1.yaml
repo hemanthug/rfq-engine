@@ -55,68 +55,51 @@ tolerance_classes:
   standard:
     label: Standard
     multiplier: 1.0
-    warnings: []
   tight:
     label: Tight
     multiplier: 1.25
-    warnings: []
   precision:
     label: Precision
     multiplier: 1.6
-    warnings:
-      - manual_review_recommended
 
 finishes:
   as_machined:
     label: As machined
     multiplier: 1.0
     per_part_add_usd: 0.0
-    warnings: []
   bead_blasted:
     label: Bead blasted
     multiplier: 1.0
     per_part_add_usd: 8.0
-    warnings: []
   anodized_clear:
     label: Clear anodized
     multiplier: 1.0
     per_part_add_usd: 20.0
-    warnings:
-      - finish_material_compatibility_should_be_verified
 
 lead_time_classes:
   economy:
     label: Economy
     multiplier: 0.95
-    warnings: []
   standard:
     label: Standard
     multiplier: 1.0
-    warnings: []
   expedited:
     label: Expedited
     multiplier: 1.35
-    warnings:
-      - expedited_lead_time_subject_to_capacity
 
 quantity_tiers:
   - min_quantity: 1
     max_quantity: 4
     multiplier: 1.0
-    warnings: []
   - min_quantity: 5
     max_quantity: 24
     multiplier: 0.9
-    warnings: []
   - min_quantity: 25
     max_quantity: 99
     multiplier: 0.82
-    warnings: []
   - min_quantity: 100
     max_quantity: null
     multiplier: 0.75
-    warnings:
-      - production_pricing_should_be_vendor_validated
 
 feature_operations:
   through_hole_usd_each: 4.0

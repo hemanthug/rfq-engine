@@ -52,8 +52,8 @@ def test_generated_box_produces_molding_tooling_and_production_quote(tmp_path: P
         result.total_first_order_cost / result.quantity,
         2,
     )
-    assert "dfm_not_performed" in result.warnings
-    assert "moldflow_not_performed" in result.warnings
+    assert "dfm_not_performed" in result.assumptions
+    assert "moldflow_not_performed" in result.assumptions
     assert _line(result, "press_time").amount > 0
 
 
@@ -133,7 +133,6 @@ def test_mold_class_changes_tooling_cost(tmp_path: Path) -> None:
     production = pricer.price(features, _request(mold_class="production"))
 
     assert production.tooling_cost > prototype.tooling_cost
-    assert "prototype_tooling_limited_life" in prototype.warnings
 
 
 def test_pulley_profile_complexity_affects_molding_tooling_and_cycle_time() -> None:
@@ -147,7 +146,6 @@ def test_pulley_profile_complexity_affects_molding_tooling_and_cycle_time() -> N
     assert press_time.details["profile_complexity_candidate_count"] == 145
     assert press_time.details["profile_complexity_multiplier"] > 1.0
     assert geometry_complexity.amount > 0
-    assert "profile_geometry_priced_as_molding_complexity" in result.warnings
 
 
 def test_simple_box_has_no_profile_complexity_multiplier(tmp_path: Path) -> None:

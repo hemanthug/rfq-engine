@@ -87,7 +87,7 @@ OpenCascade geometry, and delete uploads after each request.
 - Deterministic 0-100 heuristic complexity score
 - Internal 3-axis CNC milling budgetary pricer
 - Versioned CNC YAML rate card
-- Pricing schemas with line items, warnings, assumptions, confidence, and diagnostics
+- Pricing schemas with line items, assumptions, confidence, and diagnostics
 - Synchronous CAD preview multipart endpoint
 - Synchronous CNC multipart quote endpoint
 - Backend STEP-derived preview mesh generation

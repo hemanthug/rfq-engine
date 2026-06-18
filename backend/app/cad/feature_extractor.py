@@ -20,9 +20,8 @@ class FeatureExtractor:
         faces = analyze_faces(topology)
         edges = analyze_edges(topology)
         adjacency = self._build_adjacency(edges, {face.face_id: face.surface_type for face in faces})
-        holes, hole_warnings, rejected_candidates = recognize_holes(faces, edges)
-        pockets, pocket_warnings = recognize_pockets(faces, adjacency)
-        warnings = sorted(set([*hole_warnings, *pocket_warnings]))
+        holes, rejected_candidates = recognize_holes(faces, edges)
+        pockets = recognize_pockets(faces, adjacency)
 
         return FeatureExtractionResult(
             schema_version="1.0",
@@ -32,10 +31,9 @@ class FeatureExtractor:
             adjacency=adjacency,
             holes=holes,
             pockets=pockets,
-            complexity=self._complexity(faces, edges, holes, pockets, warnings),
+            complexity=self._complexity(faces, edges, holes, pockets),
             diagnostics=FeatureDiagnostics(
                 detector_versions=DETECTOR_VERSIONS,
-                warnings=warnings,
                 deferred_feature_types=DEFERRED_FEATURE_TYPES,
                 rejected_candidates=rejected_candidates,
             ),
@@ -63,7 +61,7 @@ class FeatureExtractor:
             )
         return adjacency
 
-    def _complexity(self, faces: list, edges: list, holes: list, pockets: list, warnings: list[str]) -> ComplexityScore:
+    def _complexity(self, faces: list, edges: list, holes: list, pockets: list) -> ComplexityScore:
         non_planar_faces = sum(1 for face in faces if face.surface_type != "plane")
         non_planar_ratio = non_planar_faces / max(1, len(faces))
         raw_score = (
@@ -72,7 +70,6 @@ class FeatureExtractor:
             + non_planar_ratio * 25.0
             + len(holes) * 4.0
             + len(pockets) * 6.0
-            + len(warnings) * 3.0
         )
         score = int(max(0, min(100, round(raw_score))))
         return ComplexityScore(
@@ -83,6 +80,5 @@ class FeatureExtractor:
                 "non_planar_face_ratio": float(non_planar_ratio),
                 "hole_count": float(len(holes)),
                 "pocket_count": float(len(pockets)),
-                "warning_count": float(len(warnings)),
             },
         )

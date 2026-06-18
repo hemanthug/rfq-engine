@@ -49,9 +49,7 @@ class PreviewMeshBuilder:
         normals: list[float] = []
         indices: list[int] = []
         edges: list[float] = []
-        warnings: list[str] = []
         triangle_count = 0
-        face_count_without_triangulation = 0
 
         explorer = modules["TopExp"].TopExp_Explorer(shape, modules["TopAbs"].TopAbs_FACE)
         while explorer.More():
@@ -59,7 +57,6 @@ class PreviewMeshBuilder:
             location = modules["TopLoc_Location"]()
             triangulation = modules["BRep"].BRep_Tool.Triangulation(face, location)
             if triangulation is None or int(triangulation.NbTriangles()) <= 0:
-                face_count_without_triangulation += 1
                 explorer.Next()
                 continue
 
@@ -90,8 +87,6 @@ class PreviewMeshBuilder:
 
         if triangle_count <= 0:
             raise PreviewMeshError("OpenCascade produced no preview triangles.")
-        if face_count_without_triangulation:
-            warnings.append("some_faces_missing_triangulation")
 
         vertex_count = len(positions) // 3
         return PreviewMeshResult(
@@ -109,7 +104,6 @@ class PreviewMeshBuilder:
                 angular_deflection_rad=angular_deflection,
                 is_relative=is_relative,
                 is_parallel=is_parallel,
-                warnings=warnings,
             ),
         )
 
